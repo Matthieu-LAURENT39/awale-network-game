@@ -50,7 +50,41 @@ int is_username_taken(const char *username)
     return taken;
 }
 
-// Handle client communication
+// ========== Main server logic ==========
+void handle_command(int sockfd, const char *command)
+{
+    Message msg;
+    msg.type = MSG_TYPE_TEXT;
+    strcpy(msg.username, "Server");
+
+    if (strcmp(command, "/list") == 0)
+    {
+        char client_list[BUFFER_SIZE] = "Connected clients:\n";
+        pthread_mutex_lock(&clients_mutex);
+        for (int i = 0; i < MAX_CLIENTS; ++i)
+        {
+            if (clients[i].sockfd != 0)
+            {
+                strcat(client_list, clients[i].username);
+                strcat(client_list, "\n");
+            }
+        }
+        pthread_mutex_unlock(&clients_mutex);
+        strcpy(msg.data, client_list);
+        send_message(sockfd, &msg);
+    }
+    else if (strcmp(command, "/help") == 0)
+    {
+        strcpy(msg.data, "Available commands:\n/list - Shows the list of connected clients\n/help - Shows this help message");
+        send_message(sockfd, &msg);
+    }
+    else
+    {
+        strcpy(msg.data, "Unknown command.");
+        send_message(sockfd, &msg);
+    }
+}
+
 void *handle_client(void *arg)
 {
     int sockfd = *(int *)arg;
@@ -114,8 +148,15 @@ void *handle_client(void *arg)
             break;
         }
 
-        // Broadcast message to other clients
-        broadcast_message(&msg, sockfd);
+        if (msg.data[0] == '/')
+        {
+            handle_command(sockfd, msg.data);
+        }
+        else
+        {
+            // Broadcast message to other clients
+            broadcast_message(&msg, sockfd);
+        }
     }
 
     // Remove client from clients list
