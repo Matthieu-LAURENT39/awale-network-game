@@ -1,4 +1,5 @@
 #include "common.h"
+#include "game.h"
 #include <pthread.h>
 
 #define MAX_CLIENTS 10
@@ -9,7 +10,23 @@ typedef struct
     char username[USERNAME_MAX_LEN];
 } ClientInfo;
 
+// Structure to represent a challenge
+typedef struct Challenge
+{
+    char challenger[USERNAME_MAX_LEN];
+    char challenged[USERNAME_MAX_LEN];
+    int game_id;
+    struct Challenge *next;
+} Challenge;
+
+// Head pointers for active games and challenges
+Game *game_list = NULL;
+Challenge *challenge_list = NULL;
 ClientInfo clients[MAX_CLIENTS];
+
+// Mutexes for thread-safe operations
+pthread_mutex_t game_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t challenge_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Broadcast message to all clients except the sender
@@ -50,12 +67,79 @@ int is_username_taken(const char *username)
     return taken;
 }
 
-// ========== Main server logic ==========
-void handle_command(int sockfd, const char *command)
+// ========== Game logic ==========
+// Add a new challenge
+void add_challenge(const char *challenger, const char *challenged, int game_id)
 {
-    Message msg;
-    msg.type = MSG_TYPE_TEXT;
-    strcpy(msg.username, "Server");
+    Challenge *new_challenge = (Challenge *)malloc(sizeof(Challenge));
+    if (!new_challenge)
+    {
+        perror("Failed to allocate memory for new challenge");
+        return;
+    }
+    strncpy(new_challenge->challenger, challenger, USERNAME_MAX_LEN - 1);
+    new_challenge->challenger[USERNAME_MAX_LEN - 1] = '\0';
+    strncpy(new_challenge->challenged, challenged, USERNAME_MAX_LEN - 1);
+    new_challenge->challenged[USERNAME_MAX_LEN - 1] = '\0';
+    new_challenge->game_id = game_id;
+    new_challenge->next = NULL;
+
+    pthread_mutex_lock(&challenge_mutex);
+    new_challenge->next = challenge_list;
+    challenge_list = new_challenge;
+    pthread_mutex_unlock(&challenge_mutex);
+}
+
+// Find and remove a challenge
+Challenge *find_and_remove_challenge(const char *challenger, const char *challenged)
+{
+    pthread_mutex_lock(&challenge_mutex);
+    Challenge *current = challenge_list;
+    Challenge *prev = NULL;
+    while (current)
+    {
+        if (strcmp(current->challenger, challenger) == 0 &&
+            strcmp(current->challenged, challenged) == 0)
+        {
+            if (prev)
+            {
+                prev->next = current->next;
+            }
+            else
+            {
+                challenge_list = current->next;
+            }
+            pthread_mutex_unlock(&challenge_mutex);
+            return current;
+        }
+        prev = current;
+        current = current->next;
+    }
+    pthread_mutex_unlock(&challenge_mutex);
+    return NULL;
+}
+
+// Send a message to a specific user
+void send_to_user(const char *username, Message *msg)
+{
+    pthread_mutex_lock(&clients_mutex);
+    for (int i = 0; i < MAX_CLIENTS; ++i)
+    {
+        if (clients[i].sockfd != 0 && strcmp(clients[i].username, username) == 0)
+        {
+            send_message(clients[i].sockfd, msg);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&clients_mutex);
+}
+
+// ========== Main server logic ==========
+void handle_command(int sockfd, const char *command, const char *username)
+{
+    Message response;
+    strcpy(response.username, "Server");
+    response.type = MSG_TYPE_TEXT;
 
     if (strcmp(command, "/list") == 0)
     {
@@ -70,18 +154,356 @@ void handle_command(int sockfd, const char *command)
             }
         }
         pthread_mutex_unlock(&clients_mutex);
-        strcpy(msg.data, client_list);
-        send_message(sockfd, &msg);
+        strcpy(response.data, client_list);
+        send_message(sockfd, &response);
     }
     else if (strcmp(command, "/help") == 0)
     {
-        strcpy(msg.data, "Available commands:\n/list - Shows the list of connected clients\n/help - Shows this help message");
-        send_message(sockfd, &msg);
+        strcpy(response.data, "Available commands:\n"
+                              "/list - Shows the list of connected clients\n"
+                              "/help - Shows this help message\n"
+                              "/challenge <username> - Challenge another player to a game\n"
+                              "/accept <game_id> - Accept a game challenge\n"
+                              "/decline <game_id> - Decline a game challenge\n"
+                              "/move <game_id> <hole_number> - Make a move in a specified game\n"
+                              "/listgames - List all active games you are part of\n"
+                              "/gameinfo <game_id> - Get detailed information about a specific game");
+        send_message(sockfd, &response);
     }
+
+    // Game commands
+    else if (strncmp(command, "/challenge ", 11) == 0)
+    {
+        char target_username[USERNAME_MAX_LEN];
+        sscanf(command + 11, "%s", target_username);
+
+        if (strcmp(target_username, username) == 0)
+        {
+            strcpy(response.data, "You cannot challenge yourself.");
+            send_message(sockfd, &response);
+            return;
+        }
+
+        // Check if target user exists
+        int user_found = 0;
+        pthread_mutex_lock(&clients_mutex);
+        for (int i = 0; i < MAX_CLIENTS; ++i)
+        {
+            if (clients[i].sockfd != 0 && strcmp(clients[i].username, target_username) == 0)
+            {
+                user_found = 1;
+                break;
+            }
+        }
+        pthread_mutex_unlock(&clients_mutex);
+
+        if (!user_found)
+        {
+            strcpy(response.data, "User not found.");
+            send_message(sockfd, &response);
+            return;
+        }
+
+        // Create a unique game ID (simple increment, could be improved)
+        static int next_game_id = 1;
+        int game_id = next_game_id++;
+
+        // Add challenge to the list
+        add_challenge(username, target_username, game_id);
+
+        // Notify the challenged user
+        Message challenge_msg;
+        challenge_msg.type = MSG_TYPE_TEXT;
+        strcpy(challenge_msg.username, "Server");
+        snprintf(challenge_msg.data, BUFFER_SIZE, "You have been challenged by %s. Use /accept %d or /decline %d to respond.", username, game_id, game_id);
+        send_to_user(target_username, &challenge_msg);
+
+        // Notify the challenger
+        strcpy(response.data, "Challenge sent.");
+        send_message(sockfd, &response);
+    }
+    else if (strncmp(command, "/accept", 7) == 0)
+    {
+        int game_id;
+        sscanf(command + 8, "%d", &game_id);
+
+        // Find the corresponding challenge
+        pthread_mutex_lock(&challenge_mutex);
+        Challenge *challenge = NULL;
+        Challenge *current = challenge_list;
+        Challenge *prev = NULL;
+        while (current)
+        {
+            if (current->game_id == game_id && strcmp(current->challenged, username) == 0)
+            {
+                challenge = current;
+                // Remove from challenge list
+                if (prev)
+                {
+                    prev->next = current->next;
+                }
+                else
+                {
+                    challenge_list = current->next;
+                }
+                break;
+            }
+            prev = current;
+            current = current->next;
+        }
+        pthread_mutex_unlock(&challenge_mutex);
+
+        if (!challenge)
+        {
+            strcpy(response.data, "No such challenge found.");
+            send_message(sockfd, &response);
+            return;
+        }
+
+        // Create a new game
+        Game *new_game = create_game(game_id, challenge->challenger, challenge->challenged);
+        if (!new_game)
+        {
+            strcpy(response.data, "Failed to create game.");
+            send_message(sockfd, &response);
+            free(challenge);
+            return;
+        }
+
+        // Add the game to the game list
+        pthread_mutex_lock(&game_mutex);
+        add_game(&game_list, new_game);
+        pthread_mutex_unlock(&game_mutex);
+
+        // Notify both players
+        Message game_start_msg;
+        game_start_msg.type = MSG_TYPE_TEXT;
+        strcpy(game_start_msg.username, "Server");
+        char *pos = game_start_msg.data;
+        pos += snprintf(pos, BUFFER_SIZE, "Game %d started between %s and %s. It's %s's turn.",
+                        game_id, new_game->player_usernames[PLAYER1], new_game->player_usernames[PLAYER2],
+                        new_game->player_usernames[new_game->state.turn]);
+        pos += sprintf(pos, "%s, reply with /move %d <hole_number> to make your move.\n",
+                       new_game->player_usernames[new_game->state.turn], game_id);
+        send_to_user(new_game->player_usernames[PLAYER1], &game_start_msg);
+        send_to_user(new_game->player_usernames[PLAYER2], &game_start_msg);
+        free(challenge);
+
+        // Print the initial board state
+        pretty_board_state(new_game, response.data);
+        send_to_user(new_game->player_usernames[PLAYER1], &response);
+        send_to_user(new_game->player_usernames[PLAYER2], &response);
+    }
+    else if (strncmp(command, "/decline ", 9) == 0)
+    {
+        int game_id;
+        sscanf(command + 9, "%d", &game_id);
+
+        // Find the corresponding challenge
+        pthread_mutex_lock(&challenge_mutex);
+        Challenge *challenge = NULL;
+        Challenge *current = challenge_list;
+        Challenge *prev = NULL;
+        while (current)
+        {
+            if (current->game_id == game_id && strcmp(current->challenged, username) == 0)
+            {
+                challenge = current;
+                // Remove from challenge list
+                if (prev)
+                {
+                    prev->next = current->next;
+                }
+                else
+                {
+                    challenge_list = current->next;
+                }
+                break;
+            }
+            prev = current;
+            current = current->next;
+        }
+        pthread_mutex_unlock(&challenge_mutex);
+
+        if (!challenge)
+        {
+            strcpy(response.data, "No such challenge found.");
+            send_message(sockfd, &response);
+            return;
+        }
+
+        // Notify the challenger
+        Message decline_msg;
+        decline_msg.type = MSG_TYPE_TEXT;
+        strcpy(decline_msg.username, "Server");
+        snprintf(decline_msg.data, BUFFER_SIZE, "Your challenge to %s has been declined.", challenge->challenged);
+        send_to_user(challenge->challenger, &decline_msg);
+
+        // Notify the decliner
+        strcpy(response.data, "Challenge declined.");
+        send_message(sockfd, &response);
+        free(challenge);
+    }
+    else if (strncmp(command, "/move ", 6) == 0)
+    {
+        int game_id, hole;
+        sscanf(command + 6, "%d %d", &game_id, &hole);
+        // From here onwards, holes are 0-indexed
+        hole--;
+
+        pthread_mutex_lock(&game_mutex);
+        Game *game = find_game_by_id(game_list, game_id);
+        pthread_mutex_unlock(&game_mutex);
+
+        if (!game)
+        {
+            strcpy(response.data, "Game not found.");
+            send_message(sockfd, &response);
+            return;
+        }
+
+        // Determine player number
+        int player = -1;
+        if (strcmp(game->player_usernames[PLAYER1], username) == 0)
+        {
+            player = PLAYER1;
+        }
+        else if (strcmp(game->player_usernames[PLAYER2], username) == 0)
+        {
+            player = PLAYER2;
+        }
+        else
+        {
+            strcpy(response.data, "You are not a participant of this game.");
+            send_message(sockfd, &response);
+            return;
+        }
+
+        // Attempt to make the move
+        int move_result = make_move(game, player, hole);
+        if (move_result == -1)
+        {
+            strcpy(response.data, "It's not your turn.");
+            send_message(sockfd, &response);
+            return;
+        }
+        else if (move_result == -2)
+        {
+            strcpy(response.data, "Not a hole you can select.");
+            send_message(sockfd, &response);
+            return;
+        }
+        else if (move_result == -3)
+        {
+            strcpy(response.data, "Selected hole is empty.");
+            send_message(sockfd, &response);
+            return;
+        }
+
+        // Prepare game state update message
+        Message game_msg;
+        game_msg.type = MSG_TYPE_TEXT;
+        strcpy(game_msg.username, "Server");
+
+        // Check if game is over
+        if (move_result == 1)
+        {
+            snprintf(game_msg.data, BUFFER_SIZE, "Game %d over. Scores - %s: %d, %s: %d.",
+                     game->game_id, game->player_usernames[PLAYER1], game->state.scores[PLAYER1],
+                     game->player_usernames[PLAYER2], game->state.scores[PLAYER2]);
+            // Notify both players
+            send_to_user(game->player_usernames[PLAYER1], &game_msg);
+            send_to_user(game->player_usernames[PLAYER2], &game_msg);
+
+            // Remove the game from the list
+            pthread_mutex_lock(&game_mutex);
+            remove_game(&game_list, game->game_id);
+            pthread_mutex_unlock(&game_mutex);
+        }
+        else
+        {
+            // Notify both players of the updated game state
+            char *pos = game_msg.data;
+            pos += sprintf(pos, " ===== Game %d =====\n", game->game_id);
+            pos += sprintf(pos, "Move executed (%s played hole %d). It's %s's turn.\nNew board state:\n",
+                           username, hole, game->player_usernames[game->state.turn]);
+            pos += pretty_board_state(game, pos);
+            pos += sprintf(pos, "%s, reply with /move %d <hole_number> to make your move.\n",
+                           game->player_usernames[game->state.turn], game->game_id);
+            send_to_user(game->player_usernames[PLAYER1], &game_msg);
+            send_to_user(game->player_usernames[PLAYER2], &game_msg);
+        }
+    }
+    else if (strcmp(command, "/listgames") == 0)
+    {
+        // List all active games the user is part of
+        char list[BUFFER_SIZE] = "Active Games:\n";
+        pthread_mutex_lock(&game_mutex);
+        Game *current_game = game_list;
+        while (current_game)
+        {
+            if (strcmp(current_game->player_usernames[PLAYER1], username) == 0 ||
+                strcmp(current_game->player_usernames[PLAYER2], username) == 0)
+            {
+                char game_info[128];
+                snprintf(game_info, sizeof(game_info), "Game ID: %d, Opponent: %s, Your Score: %d, Opponent Score: %d\n",
+                         current_game->game_id,
+                         strcmp(current_game->player_usernames[PLAYER1], username) == 0 ? current_game->player_usernames[PLAYER2] : current_game->player_usernames[PLAYER1],
+                         current_game->state.scores[strcmp(current_game->player_usernames[PLAYER1], username) == 0 ? PLAYER1 : PLAYER2],
+                         current_game->state.scores[strcmp(current_game->player_usernames[PLAYER1], username) == 0 ? PLAYER2 : PLAYER1]);
+                strcat(list, game_info);
+            }
+            current_game = current_game->next;
+        }
+        pthread_mutex_unlock(&game_mutex);
+
+        strcpy(response.data, list);
+        send_message(sockfd, &response);
+    }
+    else if (strncmp(command, "/gameinfo ", 10) == 0)
+    {
+        int game_id;
+        sscanf(command + 10, "%d", &game_id);
+
+        pthread_mutex_lock(&game_mutex);
+        Game *game = find_game_by_id(game_list, game_id);
+        pthread_mutex_unlock(&game_mutex);
+
+        if (!game)
+        {
+            strcpy(response.data, "Game not found.");
+            send_message(sockfd, &response);
+            return;
+        }
+
+        // Check if user is part of the game
+        if (strcmp(game->player_usernames[PLAYER1], username) != 0 &&
+            strcmp(game->player_usernames[PLAYER2], username) != 0)
+        {
+            strcpy(response.data, "You are not a participant of this game.");
+            send_message(sockfd, &response);
+            return;
+        }
+
+        // Prepare game state information
+        char info[BUFFER_SIZE];
+        snprintf(info, sizeof(info),
+                 "Game ID: %d\nPlayers: %s vs %s\nScores: %s: %d, %s: %d\nNext turn: %s\n",
+                 game->game_id,
+                 game->player_usernames[PLAYER1],
+                 game->player_usernames[PLAYER2],
+                 game->player_usernames[PLAYER1], game->state.scores[PLAYER1],
+                 game->player_usernames[PLAYER2], game->state.scores[PLAYER2],
+                 game->player_usernames[game->state.turn]);
+
+        strcpy(response.data, info);
+        send_message(sockfd, &response);
+    }
+
     else
     {
-        strcpy(msg.data, "Unknown command.");
-        send_message(sockfd, &msg);
+        strcpy(response.data, "Unknown command.");
+        send_message(sockfd, &response);
     }
 }
 
@@ -150,7 +572,7 @@ void *handle_client(void *arg)
 
         if (msg.data[0] == '/')
         {
-            handle_command(sockfd, msg.data);
+            handle_command(sockfd, msg.data, msg.username);
         }
         else
         {
