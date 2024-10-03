@@ -1,4 +1,5 @@
 #include "common.h"
+#include "color.h"
 #include <pthread.h>
 
 // Thread to handle incoming messages
@@ -15,7 +16,14 @@ void *receive_handler(void *arg)
             close(sockfd);
             exit(1);
         }
-        printf("%s: %s\n", msg.username, msg.data);
+        else if (msg.type == MSG_TYPE_TEXT)
+        {
+            printf("%s%s%s:%s %s%s%s\n", CHAT_USERNAME_STYLE, STYLE_BOLD, msg.username, COLOR_RESET, CHAT_TEXT_STYLE, msg.data, COLOR_RESET);
+        }
+        else if (msg.type == MSG_TYPE_SERVER)
+        {
+            printf("%s\n", msg.data);
+        }
     }
     return NULL;
 }
@@ -59,6 +67,9 @@ int main()
         perror("send_message");
         exit(1);
     }
+    char output[BUFFER_SIZE];
+    colorize("Connection successful", SERVER_SUCCESS_STYLE, STYLE_BOLD, output);
+    printf("%s\n", output);
 
     // Start thread to receive messages
     pthread_t recv_thread;

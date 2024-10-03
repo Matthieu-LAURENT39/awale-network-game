@@ -1,8 +1,11 @@
 #include "common.h"
 #include "game.h"
+#include "color.h"
 #include <pthread.h>
 
 #define MAX_CLIENTS 10
+
+// Todo: factor out common logic
 
 typedef struct
 {
@@ -28,6 +31,8 @@ ClientInfo clients[MAX_CLIENTS];
 pthread_mutex_t game_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t challenge_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+const char *SERVER_WELCOME_MESSAGE = "Welcome to Matt's Awale server!\nType /help for a list of available commands.";
 
 // Broadcast message to all clients except the sender
 void broadcast_message(Message *msg, int exclude_sockfd)
@@ -138,8 +143,7 @@ void send_to_user(const char *username, Message *msg)
 void handle_command(int sockfd, const char *command, const char *username)
 {
     Message response;
-    strcpy(response.username, "Server");
-    response.type = MSG_TYPE_TEXT;
+    response.type = MSG_TYPE_SERVER;
 
     if (strcmp(command, "/list") == 0)
     {
@@ -154,20 +158,21 @@ void handle_command(int sockfd, const char *command, const char *username)
             }
         }
         pthread_mutex_unlock(&clients_mutex);
-        strcpy(response.data, client_list);
+        colorize(client_list, SERVER_SUCCESS_STYLE, NULL, response.data);
         send_message(sockfd, &response);
     }
     else if (strcmp(command, "/help") == 0)
     {
-        strcpy(response.data, "Available commands:\n"
-                              "/list - Shows the list of connected clients\n"
-                              "/help - Shows this help message\n"
-                              "/challenge <username> - Challenge another player to a game\n"
-                              "/accept <game_id> - Accept a game challenge\n"
-                              "/decline <game_id> - Decline a game challenge\n"
-                              "/move <game_id> <hole_number> - Make a move in a specified game\n"
-                              "/listgames - List all active games you are part of\n"
-                              "/gameinfo <game_id> - Get detailed information about a specific game");
+        sprintf(response.data, "%s%sAvailable commands:%s\n"
+                               "%s/list - Shows the list of connected clients\n"
+                               "/help - Shows this help message\n"
+                               "/challenge <username> - Challenge another player to a game\n"
+                               "/accept <game_id> - Accept a game challenge\n"
+                               "/decline <game_id> - Decline a game challenge\n"
+                               "/move <game_id> <hole_number> - Make a move in a specified game\n"
+                               "/listgames - List all active games you are part of\n"
+                               "/gameinfo <game_id> - Get detailed information about a specific game%s\n",
+                SERVER_INFO_STYLE, STYLE_BOLD, COLOR_RESET, SERVER_INFO_STYLE, COLOR_RESET);
         send_message(sockfd, &response);
     }
 
@@ -179,7 +184,7 @@ void handle_command(int sockfd, const char *command, const char *username)
 
         if (strcmp(target_username, username) == 0)
         {
-            strcpy(response.data, "You cannot challenge yourself.");
+            colorize("You cannot challenge yourself.", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
             return;
         }
@@ -199,7 +204,7 @@ void handle_command(int sockfd, const char *command, const char *username)
 
         if (!user_found)
         {
-            strcpy(response.data, "User not found.");
+            colorize("User not found.", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
             return;
         }
@@ -219,7 +224,7 @@ void handle_command(int sockfd, const char *command, const char *username)
         send_to_user(target_username, &challenge_msg);
 
         // Notify the challenger
-        strcpy(response.data, "Challenge sent.");
+        colorize("Challenge sent.", SERVER_SUCCESS_STYLE, NULL, response.data);
         send_message(sockfd, &response);
     }
     else if (strncmp(command, "/accept", 7) == 0)
@@ -255,7 +260,7 @@ void handle_command(int sockfd, const char *command, const char *username)
 
         if (!challenge)
         {
-            strcpy(response.data, "No such challenge found.");
+            colorize("No such challenge found.", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
             return;
         }
@@ -264,7 +269,7 @@ void handle_command(int sockfd, const char *command, const char *username)
         Game *new_game = create_game(game_id, challenge->challenger, challenge->challenged);
         if (!new_game)
         {
-            strcpy(response.data, "Failed to create game.");
+            colorize("Failed to create game.", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
             free(challenge);
             return;
@@ -280,9 +285,10 @@ void handle_command(int sockfd, const char *command, const char *username)
         game_start_msg.type = MSG_TYPE_TEXT;
         strcpy(game_start_msg.username, "Server");
         char *pos = game_start_msg.data;
-        pos += snprintf(pos, BUFFER_SIZE, "Game %d started between %s and %s. It's %s's turn.",
-                        game_id, new_game->player_usernames[PLAYER1], new_game->player_usernames[PLAYER2],
-                        new_game->player_usernames[new_game->state.turn]);
+        pos += sprintf(pos, "Game %d started between %s%s%s and %s%s%s. It's %s's turn.\n",
+                       game_id, STYLE_BOLD, new_game->player_usernames[PLAYER1], COLOR_RESET, STYLE_BOLD,
+                       new_game->player_usernames[PLAYER2], COLOR_RESET, new_game->player_usernames[new_game->state.turn]);
+        // Todo: probs only need to send to the player whose turn it is
         pos += sprintf(pos, "%s, reply with /move %d <hole_number> to make your move.\n",
                        new_game->player_usernames[new_game->state.turn], game_id);
         send_to_user(new_game->player_usernames[PLAYER1], &game_start_msg);
@@ -327,7 +333,7 @@ void handle_command(int sockfd, const char *command, const char *username)
 
         if (!challenge)
         {
-            strcpy(response.data, "No such challenge found.");
+            colorize("No such challenge found.", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
             return;
         }
@@ -340,7 +346,7 @@ void handle_command(int sockfd, const char *command, const char *username)
         send_to_user(challenge->challenger, &decline_msg);
 
         // Notify the decliner
-        strcpy(response.data, "Challenge declined.");
+        colorize("Challenge declined.", SERVER_SUCCESS_STYLE, NULL, response.data);
         send_message(sockfd, &response);
         free(challenge);
     }
@@ -357,7 +363,7 @@ void handle_command(int sockfd, const char *command, const char *username)
 
         if (!game)
         {
-            strcpy(response.data, "Game not found.");
+            colorize("Game not found.", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
             return;
         }
@@ -374,7 +380,7 @@ void handle_command(int sockfd, const char *command, const char *username)
         }
         else
         {
-            strcpy(response.data, "You are not a participant of this game.");
+            colorize("You are not a participant of this game.", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
             return;
         }
@@ -383,19 +389,19 @@ void handle_command(int sockfd, const char *command, const char *username)
         int move_result = make_move(game, player, hole);
         if (move_result == -1)
         {
-            strcpy(response.data, "It's not your turn.");
+            colorize("Not your turn.", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
             return;
         }
         else if (move_result == -2)
         {
-            strcpy(response.data, "Not a hole you can select.");
+            colorize("Not a hole you can select.", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
             return;
         }
         else if (move_result == -3)
         {
-            strcpy(response.data, "Selected hole is empty.");
+            colorize("Selected hole is empty.", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
             return;
         }
@@ -428,6 +434,7 @@ void handle_command(int sockfd, const char *command, const char *username)
             pos += sprintf(pos, "Move executed (%s played hole %d). It's %s's turn.\nNew board state:\n",
                            username, hole, game->player_usernames[game->state.turn]);
             pos += pretty_board_state(game, pos);
+            // Todo: probs only need to send to the player whose turn it is
             pos += sprintf(pos, "%s, reply with /move %d <hole_number> to make your move.\n",
                            game->player_usernames[game->state.turn], game->game_id);
             send_to_user(game->player_usernames[PLAYER1], &game_msg);
@@ -457,7 +464,7 @@ void handle_command(int sockfd, const char *command, const char *username)
         }
         pthread_mutex_unlock(&game_mutex);
 
-        strcpy(response.data, list);
+        colorize(list, SERVER_GAME_STYLE, NULL, response.data);
         send_message(sockfd, &response);
     }
     else if (strncmp(command, "/gameinfo ", 10) == 0)
@@ -471,7 +478,7 @@ void handle_command(int sockfd, const char *command, const char *username)
 
         if (!game)
         {
-            strcpy(response.data, "Game not found.");
+            colorize("Game not found.", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
             return;
         }
@@ -480,7 +487,7 @@ void handle_command(int sockfd, const char *command, const char *username)
         if (strcmp(game->player_usernames[PLAYER1], username) != 0 &&
             strcmp(game->player_usernames[PLAYER2], username) != 0)
         {
-            strcpy(response.data, "You are not a participant of this game.");
+            colorize("You are not a participant of this game.", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
             return;
         }
@@ -502,7 +509,7 @@ void handle_command(int sockfd, const char *command, const char *username)
 
     else
     {
-        strcpy(response.data, "Unknown command.");
+        colorize("Unknown command.", SERVER_ERROR_STYLE, NULL, response.data);
         send_message(sockfd, &response);
     }
 }
@@ -525,7 +532,7 @@ void *handle_client(void *arg)
         // Username is taken
         Message response;
         response.type = MSG_TYPE_EXIT;
-        strcpy(response.data, "Username already taken.");
+        colorize("Username already taken.", SERVER_ERROR_STYLE, NULL, response.data);
         send_message(sockfd, &response);
         close(sockfd);
         pthread_exit(NULL);
@@ -552,13 +559,22 @@ void *handle_client(void *arg)
         // Max clients reached
         Message response;
         response.type = MSG_TYPE_EXIT;
-        strcpy(response.data, "Server full.");
+        colorize("Server full.", SERVER_ERROR_STYLE, NULL, response.data);
         send_message(sockfd, &response);
         close(sockfd);
         pthread_exit(NULL);
     }
 
     printf("%s has connected.\n", msg.username);
+    Message welcome_msg;
+    welcome_msg.type = MSG_TYPE_SERVER;
+    colorize(SERVER_WELCOME_MESSAGE, SERVER_INFO_STYLE, NULL, welcome_msg.data);
+    send_message(sockfd, &welcome_msg);
+    // Also broadcast to other clients
+    Message connected_msg;
+    connected_msg.type = MSG_TYPE_SERVER;
+    sprintf(connected_msg.data, "%s%s%s%s %shas connected.%s", SERVER_INFO_STYLE, STYLE_BOLD, msg.username, COLOR_RESET, SERVER_INFO_STYLE, COLOR_RESET);
+    broadcast_message(&connected_msg, sockfd);
 
     // Main loop
     while (1)

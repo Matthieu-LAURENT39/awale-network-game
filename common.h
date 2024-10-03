@@ -18,8 +18,12 @@
 // Message types
 typedef enum
 {
+    // A text message, displays the username
     MSG_TYPE_TEXT,
-    MSG_TYPE_EXIT
+    // Exits the client
+    MSG_TYPE_EXIT,
+    // Server message, doesn't display the username
+    MSG_TYPE_SERVER,
 } MessageType;
 
 typedef struct
