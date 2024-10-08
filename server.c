@@ -161,6 +161,31 @@ void handle_command(int sockfd, const char *command, const char *username)
         colorize(client_list, SERVER_SUCCESS_STYLE, NULL, response.data);
         send_message(sockfd, &response);
     }
+    else if (strncmp(command, "/forfeit", 8) == 0)
+    {
+        int game_id;
+        sscanf(command + 8, "%d", &game_id);
+        pthread_mutex_lock(&game_mutex);
+        Game* game_to_forfeit = find_game_by_id(game_list, game_id);
+        pthread_mutex_unlock(&game_mutex);
+
+        if (!game_to_forfeit)
+        {
+            colorize("Game not found.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+        } else {
+            //send message to both players
+            Message forfeit_msg;
+            forfeit_msg.type = MSG_TYPE_SERVER;
+            strcpy(forfeit_msg.username, "Server");
+            sprintf(forfeit_msg.data, "Game %d has been forfeited by %s.", game_id, username);
+            send_to_user(game_to_forfeit->player_usernames[PLAYER1], &forfeit_msg);
+            send_to_user(game_to_forfeit->player_usernames[PLAYER2], &forfeit_msg);
+            pthread_mutex_lock(&game_mutex);
+            remove_game(&game_list, game_id);
+            pthread_mutex_unlock(&game_mutex);
+        }
+    }
     else if (strcmp(command, "/help") == 0)
     {
         sprintf(response.data, "%s%sAvailable commands:%s\n"
@@ -580,6 +605,7 @@ void *handle_client(void *arg)
     while (1)
     {
         res = receive_message(sockfd, &msg);
+
         if (res == -1 || msg.type == MSG_TYPE_EXIT)
         {
             printf("%s has disconnected.\n", msg.username);

@@ -24,6 +24,8 @@ typedef enum
     MSG_TYPE_EXIT,
     // Server message, doesn't display the username
     MSG_TYPE_SERVER,
+    // Forfeits the client
+    MSG_TYPE_FORFEIT
 } MessageType;
 
 typedef struct

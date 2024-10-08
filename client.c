@@ -1,6 +1,7 @@
 #include "common.h"
 #include "color.h"
 #include <pthread.h>
+#include <game.h>
 
 // Thread to handle incoming messages
 void *receive_handler(void *arg)
@@ -91,6 +92,15 @@ int main()
             msg.type = MSG_TYPE_EXIT;
             send_message(sockfd, &msg);
             break;
+        } else if (strcmp(input, "/forfeit") == 0)
+        {
+            msg.type = MSG_TYPE_FORFEIT;
+            strcpy(msg.data, input);
+            if (send_message(sockfd, &msg) == -1)
+            {
+                perror("send_message");
+                break;
+            }
         }
         else
         {
