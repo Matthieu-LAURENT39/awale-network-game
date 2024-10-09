@@ -183,8 +183,6 @@ void save_game_state(Game *game)
     fclose(fp);
 }
 
-#include <dirent.h> // Include necessary header for directory handling
-
 void load_all_games()
 {
     DIR *dir;
@@ -325,7 +323,8 @@ void handle_command(int sockfd, const char *command, const char *username)
                                "/decline <game_id> - Decline a game challenge\n"
                                "/move <game_id> <hole_number> - Make a move in a specified game\n"
                                "/listgames - List all active games you are part of\n"
-                               "/gameinfo <game_id> - Get detailed information about a specific game%s\n",
+                               "/gameinfo <game_id> - Get detailed information about a specific game%s\n"
+                               "/history - Show the move history of the current game\n",
                 SERVER_INFO_STYLE, STYLE_BOLD, COLOR_RESET, SERVER_INFO_STYLE, COLOR_RESET);
         send_message(sockfd, &response);
     }
@@ -692,6 +691,37 @@ void handle_command(int sockfd, const char *command, const char *username)
         strcpy(game_msg.username, "Server");
         strcpy(game_msg.data, game_to_string(game));
         send_message(sockfd, &game_msg);
+    }
+    // Get the history of moves in a game
+    else if (strncmp(command, "/history ", 9) == 0)
+    {
+        int game_id;
+        sscanf(command + 9, "%d", &game_id);
+
+        pthread_mutex_lock(&game_mutex);
+        Game *game = find_game_by_id(game_list, game_id);
+        pthread_mutex_unlock(&game_mutex);
+
+        if (!game)
+        {
+            colorize("Game not found.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+            return;
+        }
+
+        // Prepare move history information
+        Message history_msg;
+        history_msg.type = MSG_TYPE_TEXT;
+        strcpy(history_msg.username, "Server");
+        MoveNode *current = game->move_history;
+        char *pos = history_msg.data;
+        pos += sprintf(pos, "Move history for game %d:\n", game_id);
+        while (current)
+        {
+            pos += sprintf(pos, "%s played hole %d\n", game->player_usernames[current->player], current->hole + 1);
+            current = current->next;
+        }
+        send_message(sockfd, &history_msg);
     }
     // watch a specific game
     else if (strncmp(command, "/watch ", 7) == 0)
