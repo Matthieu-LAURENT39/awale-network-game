@@ -31,6 +31,12 @@ Game *create_game(int game_id, const char *player1_username, const char *player2
     game->move_history = NULL;
     game->next = NULL;
 
+    // Initialize watch list with NULL
+    for (int i = 0; i < 100; i++)
+    {
+        game->watch_list[i][0] = '\0';
+    }
+
     return game;
 }
 

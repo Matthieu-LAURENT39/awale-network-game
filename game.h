@@ -39,6 +39,7 @@ typedef struct Game
     char player_usernames[2][USERNAME_MAX_LEN];
     GameState state;
     MoveNode *move_history;
+    char watch_list[100][USERNAME_MAX_LEN];
     struct Game *next; // For managing multiple games in a linked list
 } Game;
 

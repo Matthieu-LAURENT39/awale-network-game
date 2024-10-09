@@ -422,24 +422,24 @@ void handle_command(int sockfd, const char *command, const char *username)
 
         // Attempt to make the move
         int move_result = make_move(game, player, hole);
-        // if (move_result == -1)
-        // {
-        //     colorize("Not your turn.", SERVER_ERROR_STYLE, NULL, response.data);
-        //     send_message(sockfd, &response);
-        //     return;
-        // }
-        // else if (move_result == -2)
-        // {
-        //     colorize("Not a hole you can select.", SERVER_ERROR_STYLE, NULL, response.data);
-        //     send_message(sockfd, &response);
-        //     return;
-        // }
-        // else if (move_result == -3)
-        // {
-        //     colorize("Selected hole is empty.", SERVER_ERROR_STYLE, NULL, response.data);
-        //     send_message(sockfd, &response);
-        //     return;
-        // }
+        if (move_result == -1)
+        {
+            colorize("Not your turn.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+            return;
+        }
+        else if (move_result == -2)
+        {
+            colorize("Not a hole you can select.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+            return;
+        }
+        else if (move_result == -3)
+        {
+            colorize("Selected hole is empty.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+            return;
+        }
 
         // Prepare game state update message
         Message game_msg;
@@ -480,6 +480,14 @@ void handle_command(int sockfd, const char *command, const char *username)
             strcpy(game_msg.data, game_to_string(game));
             send_to_user(game->player_usernames[PLAYER1], &game_msg);
             send_to_user(game->player_usernames[PLAYER2], &game_msg);
+
+            for (int i = 0; i < 100; i++)
+            {
+                if (game->watch_list[i][0] != '\0')
+                {
+                    send_to_user(game->watch_list[i], &game_msg);
+                }
+            }
         }
     }
     else if (strcmp(command, "/listgames") == 0)
@@ -524,30 +532,107 @@ void handle_command(int sockfd, const char *command, const char *username)
             return;
         }
 
-        // Check if user is part of the game
-        if (strcmp(game->player_usernames[PLAYER1], username) != 0 &&
-            strcmp(game->player_usernames[PLAYER2], username) != 0)
+        // Prepare game state information
+        Message game_msg;
+        game_msg.type = MSG_TYPE_INFO;
+        strcpy(game_msg.username, "Server");
+        strcpy(game_msg.data, game_to_string(game));
+        send_message(sockfd, &game_msg);
+    }
+    // watch a specific game
+    else if (strncmp(command, "/watch ", 7) == 0)
+    {
+        int game_id;
+        sscanf(command + 7, "%d", &game_id);
+
+        pthread_mutex_lock(&game_mutex);
+        Game *game = find_game_by_id(game_list, game_id);
+        pthread_mutex_unlock(&game_mutex);
+
+        if (!game)
         {
-            colorize("You are not a participant of this game.", SERVER_ERROR_STYLE, NULL, response.data);
+            colorize("Game not found.", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
             return;
         }
 
-        // Prepare game state information
-        char info[BUFFER_SIZE];
-        snprintf(info, sizeof(info),
-                 "Game ID: %d\nPlayers: %s vs %s\nScores: %s: %d, %s: %d\nNext turn: %s\n",
-                 game->game_id,
-                 game->player_usernames[PLAYER1],
-                 game->player_usernames[PLAYER2],
-                 game->player_usernames[PLAYER1], game->state.scores[PLAYER1],
-                 game->player_usernames[PLAYER2], game->state.scores[PLAYER2],
-                 game->player_usernames[game->state.turn]);
+        // Add the user to the watch list
+        pthread_mutex_lock(&game_mutex);
+        // check if the user is already watching the game
+        int already_watching = 0;
+        for (int i = 0; i < 100; i++)
+        {
+            if (strcmp(game->watch_list[i], username) == 0)
+            {
+                colorize("You are already watching this game.", SERVER_ERROR_STYLE, NULL, response.data);
+                already_watching = 1;
+                send_message(sockfd, &response);
+                break;
+            }
+        }
 
-        strcpy(response.data, info);
+        // check if user doesn't watch his own game
+        int own_game = 0;
+        if (strcmp(game->player_usernames[PLAYER1], username) == 0 || strcmp(game->player_usernames[PLAYER2], username) == 0)
+        {
+            colorize("You can't watch your own game.", SERVER_ERROR_STYLE, NULL, response.data);
+            own_game = 1;
+            send_message(sockfd, &response);
+        }
+        // traverse the watch list to see an available slot
+        if (already_watching == 0 && own_game == 0)
+        {
+            for (int i = 0; i < 100; i++)
+            {
+                if (game->watch_list[i][0] == '\0')
+                {
+                    strncpy(game->watch_list[i], username, USERNAME_MAX_LEN - 1);
+                    colorize("You are now watching the game.", SERVER_SUCCESS_STYLE, NULL, response.data);
+                    send_message(sockfd, &response);
+                    break;
+                }
+            }
+        }
+        pthread_mutex_unlock(&game_mutex);
+    }
+    else if (strncmp(command, "/unwatch ", 7) == 0)
+    {
+        int game_id;
+        sscanf(command + 9, "%d", &game_id);
+
+        pthread_mutex_lock(&game_mutex);
+        Game *game = find_game_by_id(game_list, game_id);
+        pthread_mutex_unlock(&game_mutex);
+
+        if (!game)
+        {
+            colorize("Game not found.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+            return;
+        }
+
+        // Remove the user from the watch list
+        pthread_mutex_lock(&game_mutex);
+        int watching = 0;
+        for (int i = 0; i < 100; i++)
+        {
+            if (strcmp(game->watch_list[i], username) == 0)
+            {
+                game->watch_list[i][0] = '\0';
+                watching = 1;
+                colorize("You are no longer watching the game.", SERVER_SUCCESS_STYLE, NULL, response.data);
+                break;
+            }
+        }
+
+        if (!watching)
+        {
+            colorize("You are not watching this game.", SERVER_ERROR_STYLE, NULL, response.data);
+        }
+
+        pthread_mutex_unlock(&game_mutex);
         send_message(sockfd, &response);
     }
-
     else
     {
         colorize("Unknown command.", SERVER_ERROR_STYLE, NULL, response.data);
