@@ -1,12 +1,18 @@
 #include "common.h"
 #include "game.h"
 #include "color.h"
-#include <pthread.h>
 #include "server.h"
+#include <pthread.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 #define MAX_CLIENTS 10
 
 // Todo: factor out common logic
+
+#define GAME_DIR "./games/"
+
+int next_game_id = 1;
 
 typedef struct
 {
@@ -140,6 +146,123 @@ void send_to_user(const char *username, Message *msg)
     pthread_mutex_unlock(&clients_mutex);
 }
 
+// ========== Filesystem logic ==========
+void save_game_state(Game *game)
+{
+    char filepath[1024];
+    snprintf(filepath, sizeof(filepath), "%s/game_%d.dat", GAME_DIR, game->game_id);
+
+    FILE *fp = fopen(filepath, "w");
+    if (fp == NULL)
+    {
+        perror("Failed to open file for writing game state");
+        return;
+    }
+
+    fprintf(fp, "%d|%s|%s|%d|%d|%d",
+            game->game_id,
+            game->player_usernames[PLAYER1],
+            game->player_usernames[PLAYER2],
+            game->state.scores[PLAYER1],
+            game->state.scores[PLAYER2],
+            game->state.turn);
+
+    for (int i = 0; i < NUM_HOLES; i++)
+    {
+        fprintf(fp, "|%d", game->state.board[i]);
+    }
+
+    // Append the move history to the file
+    MoveNode *node = game->move_history;
+    while (node != NULL)
+    {
+        fprintf(fp, "|%d|%d", node->player, node->hole);
+        node = node->next;
+    }
+
+    fclose(fp);
+}
+
+#include <dirent.h> // Include necessary header for directory handling
+
+void load_all_games()
+{
+    DIR *dir;
+    struct dirent *entry;
+
+    if ((dir = opendir(GAME_DIR)) == NULL)
+    {
+        perror("Failed to open directory");
+        return;
+    }
+
+    int max_game_id = 0; // Local variable to find the maximum game ID
+
+    while ((entry = readdir(dir)) != NULL)
+    {
+        if (entry->d_type == DT_REG)
+        { // If the entry is a regular file
+            char filepath[1024];
+            snprintf(filepath, sizeof(filepath), "%s%s", GAME_DIR, entry->d_name);
+            FILE *fp = fopen(filepath, "r");
+            if (fp == NULL)
+            {
+                perror("Failed to open file for reading game state");
+                continue;
+            }
+
+            Game *new_game = (Game *)malloc(sizeof(Game));
+            if (new_game == NULL)
+            {
+                perror("Failed to allocate memory for game");
+                fclose(fp);
+                continue;
+            }
+
+            fscanf(fp, "%d|%[^|]|%[^|]|%d|%d|%d",
+                   &new_game->game_id,
+                   new_game->player_usernames[PLAYER1],
+                   new_game->player_usernames[PLAYER2],
+                   &new_game->state.scores[PLAYER1],
+                   &new_game->state.scores[PLAYER2],
+                   (int *)&new_game->state.turn);
+
+            if (new_game->game_id > max_game_id)
+            {
+                max_game_id = new_game->game_id; // Update max_game_id if current game ID is higher
+            }
+
+            for (int i = 0; i < NUM_HOLES; i++)
+            {
+                fscanf(fp, "|%d", &new_game->state.board[i]);
+            }
+
+            // Load move history
+            new_game->move_history = NULL;
+            MoveNode **current_node = &new_game->move_history;
+            while (fscanf(fp, "|%d|%d", (int *)&new_game->state.turn, &new_game->state.board[0]) == 2)
+            {
+                *current_node = (MoveNode *)malloc(sizeof(MoveNode));
+                (*current_node)->player = new_game->state.turn;
+                (*current_node)->hole = new_game->state.board[0];
+                current_node = &(*current_node)->next;
+            }
+            *current_node = NULL;
+
+            new_game->next = game_list;
+            game_list = new_game;
+
+            fclose(fp);
+
+            printf("Loaded game %d\n", new_game->game_id);
+        }
+    }
+
+    closedir(dir);
+
+    next_game_id = max_game_id + 1; // Set next_game_id to one more than the highest found
+}
+
 // ========== Main server logic ==========
 void handle_command(int sockfd, const char *command, const char *username)
 {
@@ -177,6 +300,12 @@ void handle_command(int sockfd, const char *command, const char *username)
         }
         else
         {
+            // Store the game state before closing it
+            pthread_mutex_lock(&game_mutex);
+            game_to_forfeit->status = (strcmp(username, game_to_forfeit->player_usernames[PLAYER1]) == 0) ? PLAYER2_WON : PLAYER1_WON;
+            save_game_state(game_to_forfeit);
+            pthread_mutex_unlock(&game_mutex);
+
             // send message to both players
             Message forfeit_msg;
             forfeit_msg.type = MSG_TYPE_SERVER;
@@ -184,9 +313,6 @@ void handle_command(int sockfd, const char *command, const char *username)
             sprintf(forfeit_msg.data, "Game %d has been forfeited by %s.", game_id, username);
             send_to_user(game_to_forfeit->player_usernames[PLAYER1], &forfeit_msg);
             send_to_user(game_to_forfeit->player_usernames[PLAYER2], &forfeit_msg);
-            pthread_mutex_lock(&game_mutex);
-            remove_game(&game_list, game_id);
-            pthread_mutex_unlock(&game_mutex);
         }
     }
     else if (strcmp(command, "/help") == 0)
@@ -238,7 +364,6 @@ void handle_command(int sockfd, const char *command, const char *username)
         }
 
         // Create a unique game ID (simple increment, could be improved)
-        static int next_game_id = 1;
         int game_id = next_game_id++;
 
         // Add challenge to the list
@@ -306,6 +431,8 @@ void handle_command(int sockfd, const char *command, const char *username)
         // Add the game to the game list
         pthread_mutex_lock(&game_mutex);
         add_game(&game_list, new_game);
+        // Save the game state to a file
+        save_game_state(new_game);
         pthread_mutex_unlock(&game_mutex);
 
         // Notify both players
@@ -394,7 +521,6 @@ void handle_command(int sockfd, const char *command, const char *username)
 
         pthread_mutex_lock(&game_mutex);
         Game *game = find_game_by_id(game_list, game_id);
-        pthread_mutex_unlock(&game_mutex);
 
         if (!game)
         {
@@ -402,6 +528,15 @@ void handle_command(int sockfd, const char *command, const char *username)
             send_message(sockfd, &response);
             return;
         }
+
+        // Check the game isn't over
+        if (game->status != ONGOING)
+        {
+            colorize("Game is already over.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+            return;
+        }
+        pthread_mutex_unlock(&game_mutex);
 
         // Determine player number
         int player = -1;
@@ -489,27 +624,46 @@ void handle_command(int sockfd, const char *command, const char *username)
                 }
             }
         }
+
+        // Save the game state to a file
+        pthread_mutex_lock(&game_mutex);
+        save_game_state(game);
+        pthread_mutex_unlock(&game_mutex);
     }
     else if (strcmp(command, "/listgames") == 0)
     {
-        // List all active games the user is part of
+        // List all active games, with a special message if the user is a participant
         char list[BUFFER_SIZE] = "Active Games:\n";
         pthread_mutex_lock(&game_mutex);
-        Game *current_game = game_list;
-        while (current_game)
+        Game *current = game_list;
+        while (current)
         {
-            if (strcmp(current_game->player_usernames[PLAYER1], username) == 0 ||
-                strcmp(current_game->player_usernames[PLAYER2], username) == 0)
+            char *pos = list + strlen(list);
+            if (strcmp(current->player_usernames[PLAYER1], username) == 0 ||
+                strcmp(current->player_usernames[PLAYER2], username) == 0)
             {
-                char game_info[128];
-                snprintf(game_info, sizeof(game_info), "Game ID: %d, Opponent: %s, Your Score: %d, Opponent Score: %d\n",
-                         current_game->game_id,
-                         strcmp(current_game->player_usernames[PLAYER1], username) == 0 ? current_game->player_usernames[PLAYER2] : current_game->player_usernames[PLAYER1],
-                         current_game->state.scores[strcmp(current_game->player_usernames[PLAYER1], username) == 0 ? PLAYER1 : PLAYER2],
-                         current_game->state.scores[strcmp(current_game->player_usernames[PLAYER1], username) == 0 ? PLAYER2 : PLAYER1]);
-                strcat(list, game_info);
+                pos += sprintf(pos, "[YOU] ");
             }
-            current_game = current_game->next;
+            pos += sprintf(pos, "Game %d: %s vs %s (", current->game_id,
+                           current->player_usernames[PLAYER1], current->player_usernames[PLAYER2]);
+            if (current->status == ONGOING)
+            {
+                pos += sprintf(pos, "ongoing");
+            }
+            else if (current->status == PLAYER1_WON)
+            {
+                pos += sprintf(pos, "%s won", current->player_usernames[PLAYER1]);
+            }
+            else if (current->status == PLAYER2_WON)
+            {
+                pos += sprintf(pos, "%s won", current->player_usernames[PLAYER2]);
+            }
+            else if (current->status == DRAW)
+            {
+                pos += sprintf(pos, "draw");
+            }
+            pos += sprintf(pos, ")\n");
+            current = current->next;
         }
         pthread_mutex_unlock(&game_mutex);
 
@@ -734,6 +888,12 @@ void *handle_client(void *arg)
 
 int main()
 {
+    // Create games directory if it doesn't exist
+    mkdir(GAME_DIR, 0755);
+
+    // Load all games from the filesystem
+    load_all_games();
+
     int server_sockfd, new_sockfd;
     struct sockaddr_in server_addr, client_addr;
     socklen_t sin_size;

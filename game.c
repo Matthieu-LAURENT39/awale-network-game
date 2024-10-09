@@ -30,6 +30,7 @@ Game *create_game(int game_id, const char *player1_username, const char *player2
     game->state.turn = PLAYER1; // Player 1 starts the game
     game->move_history = NULL;
     game->next = NULL;
+    game->status = ONGOING;
 
     // Initialize watch list with NULL
     for (int i = 0; i < 100; i++)

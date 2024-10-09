@@ -16,6 +16,14 @@ typedef enum
     PLAYER2 = 1
 } Player;
 
+typedef enum
+{
+    ONGOING = 0,
+    PLAYER1_WON = 1,
+    PLAYER2_WON = 2,
+    DRAW = 3
+} GameStatus;
+
 // Game state representation
 typedef struct
 {
@@ -36,9 +44,11 @@ typedef struct MoveNode
 typedef struct Game
 {
     int game_id;
+    // Player 1 is the player that goes first
     char player_usernames[2][USERNAME_MAX_LEN];
     GameState state;
     MoveNode *move_history;
+    GameStatus status;
     char watch_list[100][USERNAME_MAX_LEN];
     struct Game *next; // For managing multiple games in a linked list
 } Game;
