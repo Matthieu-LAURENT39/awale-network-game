@@ -2,6 +2,7 @@
 #include "game.h"
 #include "color.h"
 #include <pthread.h>
+#include "server.h"
 
 #define MAX_CLIENTS 10
 
@@ -166,15 +167,17 @@ void handle_command(int sockfd, const char *command, const char *username)
         int game_id;
         sscanf(command + 8, "%d", &game_id);
         pthread_mutex_lock(&game_mutex);
-        Game* game_to_forfeit = find_game_by_id(game_list, game_id);
+        Game *game_to_forfeit = find_game_by_id(game_list, game_id);
         pthread_mutex_unlock(&game_mutex);
 
         if (!game_to_forfeit)
         {
             colorize("Game not found.", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
-        } else {
-            //send message to both players
+        }
+        else
+        {
+            // send message to both players
             Message forfeit_msg;
             forfeit_msg.type = MSG_TYPE_SERVER;
             strcpy(forfeit_msg.username, "Server");
@@ -321,9 +324,16 @@ void handle_command(int sockfd, const char *command, const char *username)
         free(challenge);
 
         // Print the initial board state
-        pretty_board_state(new_game, response.data);
+        // pretty_board_state(new_game, response.data);
         send_to_user(new_game->player_usernames[PLAYER1], &response);
         send_to_user(new_game->player_usernames[PLAYER2], &response);
+
+        // Notify the challenger the game
+        game_start_msg.type = MSG_TYPE_INFO;
+        strcpy(game_start_msg.username, "Server");
+        strcpy(game_start_msg.data, game_to_string(new_game));
+        send_to_user(new_game->player_usernames[PLAYER1], &game_start_msg);
+        send_to_user(new_game->player_usernames[PLAYER2], &game_start_msg);
     }
     else if (strncmp(command, "/decline ", 9) == 0)
     {
@@ -412,24 +422,24 @@ void handle_command(int sockfd, const char *command, const char *username)
 
         // Attempt to make the move
         int move_result = make_move(game, player, hole);
-        if (move_result == -1)
-        {
-            colorize("Not your turn.", SERVER_ERROR_STYLE, NULL, response.data);
-            send_message(sockfd, &response);
-            return;
-        }
-        else if (move_result == -2)
-        {
-            colorize("Not a hole you can select.", SERVER_ERROR_STYLE, NULL, response.data);
-            send_message(sockfd, &response);
-            return;
-        }
-        else if (move_result == -3)
-        {
-            colorize("Selected hole is empty.", SERVER_ERROR_STYLE, NULL, response.data);
-            send_message(sockfd, &response);
-            return;
-        }
+        // if (move_result == -1)
+        // {
+        //     colorize("Not your turn.", SERVER_ERROR_STYLE, NULL, response.data);
+        //     send_message(sockfd, &response);
+        //     return;
+        // }
+        // else if (move_result == -2)
+        // {
+        //     colorize("Not a hole you can select.", SERVER_ERROR_STYLE, NULL, response.data);
+        //     send_message(sockfd, &response);
+        //     return;
+        // }
+        // else if (move_result == -3)
+        // {
+        //     colorize("Selected hole is empty.", SERVER_ERROR_STYLE, NULL, response.data);
+        //     send_message(sockfd, &response);
+        //     return;
+        // }
 
         // Prepare game state update message
         Message game_msg;
@@ -458,10 +468,16 @@ void handle_command(int sockfd, const char *command, const char *username)
             pos += sprintf(pos, " ===== Game %d =====\n", game->game_id);
             pos += sprintf(pos, "Move executed (%s played hole %d). It's %s's turn.\nNew board state:\n",
                            username, hole, game->player_usernames[game->state.turn]);
-            pos += pretty_board_state(game, pos);
+            // pos += pretty_board_state(game, pos);
             // Todo: probs only need to send to the player whose turn it is
             pos += sprintf(pos, "%s, reply with /move %d <hole_number> to make your move.\n",
                            game->player_usernames[game->state.turn], game->game_id);
+            send_to_user(game->player_usernames[PLAYER1], &game_msg);
+            send_to_user(game->player_usernames[PLAYER2], &game_msg);
+
+            game_msg.type = MSG_TYPE_INFO;
+            strcpy(game_msg.username, "Server");
+            strcpy(game_msg.data, game_to_string(game));
             send_to_user(game->player_usernames[PLAYER1], &game_msg);
             send_to_user(game->player_usernames[PLAYER2], &game_msg);
         }
@@ -546,12 +562,12 @@ void *handle_client(void *arg)
 
     Message msg;
     int res = receive_message(sockfd, &msg);
-    if (res == -1 || msg.type != MSG_TYPE_TEXT)
+
+    if (res == -1 || msg.type == MSG_TYPE_EXIT)
     {
         close(sockfd);
         pthread_exit(NULL);
     }
-
     if (is_username_taken(msg.username))
     {
         // Username is taken
@@ -605,13 +621,11 @@ void *handle_client(void *arg)
     while (1)
     {
         res = receive_message(sockfd, &msg);
-
         if (res == -1 || msg.type == MSG_TYPE_EXIT)
         {
             printf("%s has disconnected.\n", msg.username);
             break;
         }
-
         if (msg.data[0] == '/')
         {
             handle_command(sockfd, msg.data, msg.username);

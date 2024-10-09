@@ -64,4 +64,10 @@ void print_board(Game *game);
 int check_game_over(Game *game);
 int pretty_board_state(Game *game, char *output);
 
+// to string
+char *game_to_string(Game *game);
+
+// from string
+Game *game_from_string(char *str);
+
 #endif // GAME_H

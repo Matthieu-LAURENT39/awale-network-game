@@ -283,3 +283,105 @@ int check_game_over(Game *game)
     // Game is over if one side is empty
     return side1_empty || side2_empty;
 }
+
+// to string function
+char *game_to_string(Game *game)
+{
+    char *str = (char *)malloc(BUFFER_SIZE);
+    if (!str)
+    {
+        perror("Failed to allocate memory for game to string");
+        return NULL;
+    }
+
+    char *pos = str;
+
+    sprintf(pos, "Game ID: %d\nPlayers: %s vs %s\nScores: %s: %d, %s: %d\nBoard: %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d\nNext turn: %s\n",
+            game->game_id,
+            game->player_usernames[PLAYER1],
+            game->player_usernames[PLAYER2],
+            game->player_usernames[PLAYER1], game->state.scores[PLAYER1],
+            game->player_usernames[PLAYER2], game->state.scores[PLAYER2],
+            game->state.board[0],
+            game->state.board[1],
+            game->state.board[2],
+            game->state.board[3],
+            game->state.board[4],
+            game->state.board[5],
+            game->state.board[6],
+            game->state.board[7],
+            game->state.board[8],
+            game->state.board[9],
+            game->state.board[10],
+            game->state.board[11],
+            game->player_usernames[game->state.turn]);
+
+    return str;
+}
+
+// from string function
+Game *game_from_string(char *str)
+{
+    Game *game = (Game *)malloc(sizeof(Game));
+    if (!game)
+    {
+        perror("Failed to allocate memory for game from string");
+        return NULL;
+    }
+
+    char *token = strtok(str, "\n");
+    if (token == NULL)
+    {
+        perror("Invalid input string");
+        free(game);
+        return NULL;
+    }
+    sscanf(token, "Game ID: %d", &game->game_id);
+
+    token = strtok(NULL, "\n");
+    if (token == NULL)
+    {
+        perror("Invalid input string");
+        free(game);
+        return NULL;
+    }
+    sscanf(token, "Players: %s vs %s", game->player_usernames[PLAYER1], game->player_usernames[PLAYER2]);
+
+    token = strtok(NULL, "\n");
+    if (token == NULL)
+    {
+        perror("Invalid input string");
+        free(game);
+        return NULL;
+    }
+    sscanf(token, "Scores: %s: %d, %s: %d", game->player_usernames[PLAYER1], &game->state.scores[PLAYER1],
+           game->player_usernames[PLAYER2], &game->state.scores[PLAYER2]);
+
+    token = strtok(NULL, "\n");
+    if (token == NULL)
+    {
+        perror("Invalid input string");
+        free(game);
+        return NULL;
+    }
+
+    sscanf(token, "Board: %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
+           &game->state.board[0],
+           &game->state.board[1],
+           &game->state.board[2],
+           &game->state.board[3],
+           &game->state.board[4],
+           &game->state.board[5],
+           &game->state.board[6],
+           &game->state.board[7],
+           &game->state.board[8],
+           &game->state.board[9],
+           &game->state.board[10],
+           &game->state.board[11]);
+
+    char turn[USERNAME_MAX_LEN];
+    sscanf(token, "Next turn: %s", turn);
+    game->state.turn = (strcmp(turn, game->player_usernames[PLAYER1]) == 0) ? PLAYER1 : PLAYER2;
+
+    return game;
+}

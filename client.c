@@ -1,7 +1,9 @@
 #include "common.h"
 #include "color.h"
 #include <pthread.h>
-#include <game.h>
+#include "game.c"
+#include "server.h"
+#include "client.h"
 
 // Thread to handle incoming messages
 void *receive_handler(void *arg)
@@ -24,6 +26,15 @@ void *receive_handler(void *arg)
         else if (msg.type == MSG_TYPE_SERVER)
         {
             printf("%s\n", msg.data);
+        }
+        else if (msg.type == MSG_TYPE_INFO)
+        {
+            Game *game = game_from_string(msg.data);
+
+            char pretty_board[BUFFER_SIZE];
+            pretty_board_state(game, pretty_board);
+
+            printf("%s\n", pretty_board);
         }
     }
     return NULL;
@@ -92,9 +103,10 @@ int main()
             msg.type = MSG_TYPE_EXIT;
             send_message(sockfd, &msg);
             break;
-        } else if (strcmp(input, "/forfeit") == 0)
+        }
+        else if (strcmp(input, "/forfeit") == 0)
         {
-            msg.type = MSG_TYPE_FORFEIT;
+            msg.type = MSG_TYPE_TEXT;
             strcpy(msg.data, input);
             if (send_message(sockfd, &msg) == -1)
             {
