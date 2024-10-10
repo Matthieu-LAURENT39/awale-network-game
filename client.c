@@ -23,6 +23,14 @@ void *receive_handler(void *arg)
         {
             printf("%s%s%s:%s %s%s%s\n", CHAT_USERNAME_STYLE, STYLE_BOLD, msg.username, COLOR_RESET, CHAT_TEXT_STYLE, msg.data, COLOR_RESET);
         }
+        else if (msg.type == MSG_TYPE_MP)
+        {
+            printf("%sPRIVATE MESSAGE %s%s%s:%s %s%s%s\n", COLOR_BRIGHT_BLUE, CHAT_USERNAME_STYLE, STYLE_BOLD, msg.username, COLOR_RESET, CHAT_TEXT_STYLE, msg.data, COLOR_RESET);
+        }
+        else if (msg.type == MSG_TYPE_GAME)
+        {
+            printf("%sGAME MESSAGE %s%s%s:%s %s%s%s\n", COLOR_BRIGHT_BLUE, CHAT_USERNAME_STYLE, STYLE_BOLD, msg.username, COLOR_RESET, CHAT_TEXT_STYLE, msg.data, COLOR_RESET);
+        }
         else if (msg.type == MSG_TYPE_SERVER)
         {
             printf("%s\n", msg.data);
