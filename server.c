@@ -826,7 +826,7 @@ void handle_command(int sockfd, const char *command, const char *username)
     {
         int party;
         char message[BUFFER_SIZE];
-        sscanf(command + 6, "%d %s", &party, message);
+        sscanf(command + 6, "%d %[^\n]", &party, message);
         Game *game = find_game_by_id(game_list, party);
         if (!game)
         {
@@ -856,7 +856,7 @@ void handle_command(int sockfd, const char *command, const char *username)
     {
         char receiver[USERNAME_MAX_LEN];
         char message[BUFFER_SIZE];
-        sscanf(command + 4, "%s %s", receiver, message);
+        sscanf(command + 4, "%s %[^\n]", receiver, message);
 
         if (strcmp(username, receiver) == 0)
         {
