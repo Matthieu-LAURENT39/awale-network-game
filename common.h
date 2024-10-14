@@ -25,7 +25,11 @@ typedef enum
     // Server message, doesn't display the username
     MSG_TYPE_SERVER,
     // message for info of party, doesn't display anything
-    MSG_TYPE_INFO
+    MSG_TYPE_INFO,
+    // message for private message
+    MSG_TYPE_MP,
+    // message for game
+    MSG_TYPE_GAME
 } MessageType;
 
 typedef struct

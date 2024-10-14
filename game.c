@@ -248,15 +248,16 @@ int pretty_board_state(Game *game, char *output)
     char *pos = output; // Pointer to track position in the output buffer
 
     pos += sprintf(pos, "\n  Player 2 (%s) - Score: %d\n", game->player_usernames[PLAYER2], scores[PLAYER2]);
-    pos += sprintf(pos, "  +----+----+----+----+----+----+\n");
-    pos += sprintf(pos, "  | 12 | 11 | 10 | 9  | 8  | 7  |\n");
-    pos += sprintf(pos, "  | %2d | %2d | %2d | %2d | %2d | %2d |\n", board[11], board[10], board[9], board[8], board[7], board[6]);
-    pos += sprintf(pos, "  +----+----+----+----+----+----+\n");
 
-    pos += sprintf(pos, "  +----+----+----+----+----+----+\n");
-    pos += sprintf(pos, "  | 1  | 2  | 3  | 4  | 5  | 6  |\n");
-    pos += sprintf(pos, "  | %2d | %2d | %2d | %2d | %2d | %2d |\n", board[0], board[1], board[2], board[3], board[4], board[5]);
-    pos += sprintf(pos, "  +----+----+----+----+----+----+\n");
+    pos += sprintf(pos, "  12  11  10  9   8   7 \n");
+    pos += sprintf(pos, "├───┼───┼───┼───┼───┼───┤\n");
+    pos += sprintf(pos, "│%2d │%2d │%2d │%2d │%2d │%2d │\n", board[11], board[10], board[9], board[8], board[7], board[6]);
+    pos += sprintf(pos, "└───┴───┴───┴───┴───┴───┘\n");
+
+    pos += sprintf(pos, "┌───┬───┬───┬───┬───┬───┐\n");
+    pos += sprintf(pos, "│%2d │%2d │%2d │%2d │%2d │%2d │\n", board[0], board[1], board[2], board[3], board[4], board[5]);
+    pos += sprintf(pos, "├───┼───┼───┼───┼───┼───┤\n");
+    pos += sprintf(pos, "  1   2   3   4   5   6  \n");
     pos += sprintf(pos, "  Player 1 (%s) - Score: %d\n\n", game->player_usernames[PLAYER1], scores[PLAYER1]);
     return pos - output;
 }

@@ -323,8 +323,12 @@ void handle_command(int sockfd, const char *command, const char *username)
                                "/decline <game_id> - Decline a game challenge\n"
                                "/move <game_id> <hole_number> - Make a move in a specified game\n"
                                "/listgames - List all active games you are part of\n"
-                               "/gameinfo <game_id> - Get detailed information about a specific game%s\n"
-                               "/history - Show the move history of the current game\n",
+                               "/history - Show the move history of the current game\n"
+                               "/gameinfo <game_id> - Get detailed information about a specific game\n"
+                               "/forfeit <game_id> - Forfeit a game\n"
+                               "/exit - Disconnect from the server\n"
+                               "/watch <game_id> - Watch a game\n"
+                               "/unwatch <game_id> - Stop watching a game%s\n",
                 SERVER_INFO_STYLE, STYLE_BOLD, COLOR_RESET, SERVER_INFO_STYLE, COLOR_RESET);
         send_message(sockfd, &response);
     }
@@ -816,6 +820,57 @@ void handle_command(int sockfd, const char *command, const char *username)
 
         pthread_mutex_unlock(&game_mutex);
         send_message(sockfd, &response);
+    }
+    // chat to a party with /chat <number_of_party> <message>
+    else if (strncmp(command, "/chat ", 6) == 0)
+    {
+        int party;
+        char message[BUFFER_SIZE];
+        sscanf(command + 6, "%d %s", &party, message);
+        Game *game = find_game_by_id(game_list, party);
+        if (!game)
+        {
+            colorize("Game not found.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+            return;
+        }
+
+        if (strcmp(username, game->player_usernames[PLAYER1]) == 0 || strcmp(username, game->player_usernames[PLAYER2]) == 0)
+        {
+            Message chat_msg;
+            chat_msg.type = MSG_TYPE_GAME;
+            strcpy(chat_msg.username, username);
+            strcpy(chat_msg.data, message);
+
+            send_to_user(game->player_usernames[PLAYER1], &chat_msg);
+            send_to_user(game->player_usernames[PLAYER2], &chat_msg);
+        }
+        else
+        {
+            colorize("You are not a participant of this game.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+        }
+    }
+    // private message with /mp <name_to_receiver> <message>
+    else if (strncmp(command, "/mp ", 4) == 0)
+    {
+        char receiver[USERNAME_MAX_LEN];
+        char message[BUFFER_SIZE];
+        sscanf(command + 4, "%s %s", receiver, message);
+
+        if (strcmp(username, receiver) == 0)
+        {
+            colorize("You can't send a message to yourself.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+            return;
+        }
+
+        Message private_msg;
+        private_msg.type = MSG_TYPE_MP;
+        strcpy(private_msg.username, username);
+        strcpy(private_msg.data, message);
+
+        send_to_user(receiver, &private_msg);
     }
     else
     {
