@@ -12,7 +12,13 @@
 
 #define GAME_DIR "./games/"
 
+// Forward definition
+void save_game_state(Game *game);
+void send_to_user(const char *username, Message *msg);
+
 int next_game_id = 1;
+// For matchmaking
+char waiting_player[USERNAME_MAX_LEN] = "";
 
 typedef struct
 {
@@ -129,6 +135,72 @@ Challenge *find_and_remove_challenge(const char *challenger, const char *challen
     }
     pthread_mutex_unlock(&challenge_mutex);
     return NULL;
+}
+
+void handle_matchmaking(int sockfd, const char *username)
+{
+    // MAKE SURE TO RELEASE THIS IN ALL CODE PATHS
+    pthread_mutex_lock(&clients_mutex);
+    if (strlen(waiting_player) == 0)
+    {
+        // No player is waiting, set current player as waiting
+        strncpy(waiting_player, username, USERNAME_MAX_LEN - 1);
+        waiting_player[USERNAME_MAX_LEN - 1] = '\0';
+        Message msg;
+        msg.type = MSG_TYPE_TEXT;
+        strcpy(msg.username, "Server");
+        strcpy(msg.data, "You are now in the matchmaking queue. Waiting for another player...");
+        send_message(sockfd, &msg);
+        pthread_mutex_unlock(&clients_mutex);
+    }
+    else
+    {
+        // Another player is waiting, start a game
+        int game_id = next_game_id++;
+        Game *new_game = create_game(game_id, waiting_player, username);
+        if (new_game)
+        {
+            // Clear the waiting player
+            char orig_waiting_player[USERNAME_MAX_LEN];
+            strncpy(orig_waiting_player, waiting_player, USERNAME_MAX_LEN - 1);
+            waiting_player[0] = '\0';
+
+            add_game(&game_list, new_game);
+            save_game_state(new_game);
+            pthread_mutex_unlock(&clients_mutex);
+
+            // Notify both players
+            char game_start_msg[BUFFER_SIZE];
+            sprintf(game_start_msg, "Match found! Game %d started between %s and %s.\n"
+                                    "It's %s's turn.\n%s, reply with /move %d <hole_number> to make your move.",
+                    game_id, new_game->player_usernames[PLAYER1], new_game->player_usernames[PLAYER2],
+                    new_game->player_usernames[new_game->state.turn], new_game->player_usernames[new_game->state.turn], game_id);
+            Message msg;
+            msg.type = MSG_TYPE_TEXT;
+            strcpy(msg.username, "Server");
+            strcpy(msg.data, game_start_msg);
+            send_message(sockfd, &msg);
+            send_to_user(orig_waiting_player, &msg);
+
+            // Send the initial board state
+            msg.type = MSG_TYPE_INFO;
+            strcpy(msg.data, game_to_string(new_game));
+            send_message(sockfd, &msg);
+            send_to_user(orig_waiting_player, &msg);
+        }
+        else
+        {
+            pthread_mutex_unlock(&clients_mutex);
+
+            // Handle error in game creation
+            Message msg;
+            msg.type = MSG_TYPE_TEXT;
+            strcpy(msg.username, "Server");
+            strcpy(msg.data, "Failed to create game. Please try again later.");
+            send_message(sockfd, &msg);
+            send_to_user(waiting_player, &msg);
+        }
+    }
 }
 
 // Send a message to a specific user
@@ -328,7 +400,8 @@ void handle_command(int sockfd, const char *command, const char *username)
                                "/forfeit <game_id> - Forfeit a game\n"
                                "/exit - Disconnect from the server\n"
                                "/watch <game_id> - Watch a game\n"
-                               "/unwatch <game_id> - Stop watching a game%s\n",
+                               "/unwatch <game_id> - Stop watching a game\n"
+                               "/match - Join the matchmaking queue\n%s",
                 SERVER_INFO_STYLE, STYLE_BOLD, COLOR_RESET, SERVER_INFO_STYLE, COLOR_RESET);
         send_message(sockfd, &response);
     }
@@ -453,12 +526,11 @@ void handle_command(int sockfd, const char *command, const char *username)
         send_to_user(new_game->player_usernames[PLAYER2], &game_start_msg);
         free(challenge);
 
-        // Print the initial board state
         // pretty_board_state(new_game, response.data);
-        send_to_user(new_game->player_usernames[PLAYER1], &response);
-        send_to_user(new_game->player_usernames[PLAYER2], &response);
+        // send_to_user(new_game->player_usernames[PLAYER1], &response);
+        // send_to_user(new_game->player_usernames[PLAYER2], &response);
 
-        // Notify the challenger the game
+        // Print the initial board state
         game_start_msg.type = MSG_TYPE_INFO;
         strcpy(game_start_msg.username, "Server");
         strcpy(game_start_msg.data, game_to_string(new_game));
@@ -872,6 +944,11 @@ void handle_command(int sockfd, const char *command, const char *username)
 
         send_to_user(receiver, &private_msg);
     }
+    else if (strcmp(command, "/match") == 0)
+    {
+        handle_matchmaking(sockfd, username);
+    }
+
     else
     {
         colorize("Unknown command.", SERVER_ERROR_STYLE, NULL, response.data);
@@ -963,6 +1040,11 @@ void *handle_client(void *arg)
 
     // Remove client from clients list
     pthread_mutex_lock(&clients_mutex);
+    // Clear the waiting player if they disconnect
+    if (strcmp(clients[i].username, waiting_player) == 0)
+    {
+        waiting_player[0] = '\0';
+    }
     clients[i].sockfd = 0;
     clients[i].username[0] = '\0';
     pthread_mutex_unlock(&clients_mutex);
