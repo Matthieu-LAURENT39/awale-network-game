@@ -15,7 +15,11 @@ void *receive_handler(void *arg)
         int res = receive_message(sockfd, &msg);
         if (res == -1 || msg.type == MSG_TYPE_EXIT)
         {
-            printf("Disconnected from server.\n");
+            printf("%sDisconnected from server.%s\n", SERVER_ERROR_STYLE, COLOR_RESET);
+            if (msg.data[0] != '\0')
+            {
+                printf("%sReason: %s%s\n", SERVER_ERROR_STYLE, msg.data, COLOR_RESET);
+            }
             close(sockfd);
             exit(1);
         }
