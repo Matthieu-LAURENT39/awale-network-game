@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <ctype.h>
 
 #define MAX_CLIENTS 10
 
@@ -1024,10 +1025,35 @@ void *handle_client(void *arg)
         // Username is taken
         Message response;
         response.type = MSG_TYPE_EXIT;
-        colorize("Username already taken.", SERVER_ERROR_STYLE, NULL, response.data);
+        sprintf(response.data, "Username %s is already taken.", msg.username);
         send_message(sockfd, &response);
         close(sockfd);
         pthread_exit(NULL);
+    }
+// Validate username length
+    if (strlen(msg.username) == 0 || strlen(msg.username) >= USERNAME_MAX_LEN)
+    {
+        // Invalid username
+        Message response;
+        response.type = MSG_TYPE_EXIT;
+        sprintf(response.data, "Invalid username. Must be between 1 and %d characters.", USERNAME_MAX_LEN - 1);
+        send_message(sockfd, &response);
+        close(sockfd);
+        pthread_exit(NULL);
+    }
+    // Only allow alphanumeric usernames
+    for (int i = 0; i < strlen(msg.username); i++)
+    {
+        if (!isalnum(msg.username[i]))
+        {
+            // Invalid username
+            Message response;
+            response.type = MSG_TYPE_EXIT;
+            sprintf(response.data, "Invalid username. Must be alphanumeric.");
+            send_message(sockfd, &response);
+            close(sockfd);
+            pthread_exit(NULL);
+        }
     }
     // check if a file is like username.dat
     char filepath[1024];
@@ -1095,6 +1121,31 @@ void *handle_client(void *arg)
         }
         fprintf(fp, "\n%s", msg.data);
         fclose(fp);
+    }
+    // Validate username length
+    if (strlen(msg.username) == 0 || strlen(msg.username) >= USERNAME_MAX_LEN)
+    {
+        // Invalid username
+        Message response;
+        response.type = MSG_TYPE_EXIT;
+        sprintf(response.data, "Invalid username. Must be between 1 and %d characters.", USERNAME_MAX_LEN - 1);
+        send_message(sockfd, &response);
+        close(sockfd);
+        pthread_exit(NULL);
+    }
+    // Only allow alphanumeric usernames
+    for (int i = 0; i < strlen(msg.username); i++)
+    {
+        if (!isalnum(msg.username[i]))
+        {
+            // Invalid username
+            Message response;
+            response.type = MSG_TYPE_EXIT;
+            sprintf(response.data, "Invalid username. Must be alphanumeric.");
+            send_message(sockfd, &response);
+            close(sockfd);
+            pthread_exit(NULL);
+        }
     }
 
     // Add client to clients list
