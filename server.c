@@ -11,6 +11,7 @@
 // Todo: factor out common logic
 
 #define GAME_DIR "./games/"
+#define USER_DIR "./users/"
 
 int next_game_id = 1;
 
@@ -39,7 +40,7 @@ pthread_mutex_t game_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t challenge_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-const char *SERVER_WELCOME_MESSAGE = "Welcome to Matt's Awale server!\nType /help for a list of available commands.";
+const char *SERVER_WELCOME_MESSAGE = "Welcome to Matt & Quent's Awale server!\nType /help for a list of available commands.";
 
 // Broadcast message to all clients except the sender
 void broadcast_message(Message *msg, int exclude_sockfd)
@@ -851,6 +852,55 @@ void handle_command(int sockfd, const char *command, const char *username)
             send_message(sockfd, &response);
         }
     }
+    // get info of a specific user, get the informations from the file of the user, don't show the password
+    else if (strncmp(command, "/info ", 6) == 0)
+    {
+        char target_username[USERNAME_MAX_LEN];
+        sscanf(command + 6, "%s", target_username);
+
+        char filepath[1024];
+        snprintf(filepath, sizeof(filepath), "%s%s.dat", USER_DIR, target_username);
+        FILE *fp = fopen(filepath, "r");
+        // Prefix to add
+        if (fp)
+        {
+            char biography[1024];
+            char buffer[1024];
+
+            if (fgets(buffer, sizeof(buffer), fp) == NULL)
+            {
+                printf("File does not have a first line\n");
+                fclose(fp);
+            }
+
+            // Read the second line and store it in 'biography'
+            if (fgets(biography, sizeof(biography), fp) == NULL)
+            {
+                printf("File does not have a second line\n");
+                fclose(fp);
+            }
+
+            fclose(fp);
+
+            // Remove any trailing newline from the second line, if necessary
+            biography[strcspn(biography, "\n")] = '\0';
+            // Print the concatenated result
+
+            Message response;
+            response.type = MSG_TYPE_SERVER;
+            // concatenate "biography: " with the biography of the user
+
+            colorize(biography, SERVER_INFO_STYLE, NULL, response.data);
+
+            colorize("Biography: ", SERVER_INFO_STYLE, NULL, biography);
+            send_message(sockfd, &response);
+        }
+        else
+        {
+            colorize("User not found.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+        }
+    }
     // private message with /mp <name_to_receiver> <message>
     else if (strncmp(command, "/mp ", 4) == 0)
     {
@@ -901,6 +951,73 @@ void *handle_client(void *arg)
         send_message(sockfd, &response);
         close(sockfd);
         pthread_exit(NULL);
+    }
+    // check if a file is like username.dat
+    char filepath[1024];
+    snprintf(filepath, sizeof(filepath), "%s%s.dat", USER_DIR, msg.username);
+    FILE *fp = fopen(filepath, "r");
+    // if the file exists, connect with password stored in first line of file
+    if (fp)
+    {
+        char password[1024];
+        fscanf(fp, "%s", password);
+        fclose(fp);
+
+        Message response;
+        response.type = MSG_TYPE_SERVER;
+        colorize("Password: ", SERVER_INFO_STYLE, NULL, response.data);
+        send_message(sockfd, &response);
+        res = receive_message(sockfd, &msg);
+        if (res == -1 || msg.type == MSG_TYPE_EXIT)
+        {
+            close(sockfd);
+            pthread_exit(NULL);
+        }
+
+        // if user enters wrong password repeat until correct
+        while (strcmp(msg.data, password) != 0)
+        {
+            Message response;
+            response.type = MSG_TYPE_SERVER;
+            colorize("Incorrect password. Try again: ", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+            res = receive_message(sockfd, &msg);
+            if (res == -1 || msg.type == MSG_TYPE_EXIT)
+            {
+                close(sockfd);
+                pthread_exit(NULL);
+            }
+        }
+    }
+    else
+    {
+        // create a file with username.dat and store the password in the first line
+        Message response;
+        response.type = MSG_TYPE_SERVER;
+        colorize("Create Password: ", SERVER_INFO_STYLE, NULL, response.data);
+        send_message(sockfd, &response);
+        res = receive_message(sockfd, &msg);
+        if (res == -1 || msg.type == MSG_TYPE_EXIT)
+        {
+            close(sockfd);
+            pthread_exit(NULL);
+        }
+
+        fp = fopen(filepath, "w");
+        fprintf(fp, "%s", msg.data);
+
+        // ask for a biography to the user
+        response.type = MSG_TYPE_SERVER;
+        colorize("Biography: ", SERVER_INFO_STYLE, NULL, response.data);
+        send_message(sockfd, &response);
+        res = receive_message(sockfd, &msg);
+        if (res == -1 || msg.type == MSG_TYPE_EXIT)
+        {
+            close(sockfd);
+            pthread_exit(NULL);
+        }
+        fprintf(fp, "\n%s", msg.data);
+        fclose(fp);
     }
 
     // Add client to clients list
