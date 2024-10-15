@@ -91,9 +91,6 @@ int main()
         perror("send_message");
         exit(1);
     }
-    char output[BUFFER_SIZE];
-    colorize("Connection successful", SERVER_SUCCESS_STYLE, STYLE_BOLD, output);
-    printf("%s\n", output);
 
     // Start thread to receive messages
     pthread_t recv_thread;

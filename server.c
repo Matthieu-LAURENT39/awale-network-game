@@ -403,6 +403,7 @@ void handle_command(int sockfd, const char *command, const char *username)
                                "/exit - Disconnect from the server\n"
                                "/watch <game_id> - Watch a game\n"
                                "/unwatch <game_id> - Stop watching a game\n"
+                               "/info <username> - Get information about a user (his name and biography)\n"
                                "/match - Join the matchmaking queue\n%s",
                 SERVER_INFO_STYLE, STYLE_BOLD, COLOR_RESET, SERVER_INFO_STYLE, COLOR_RESET);
         send_message(sockfd, &response);
@@ -518,6 +519,10 @@ void handle_command(int sockfd, const char *command, const char *username)
         game_start_msg.type = MSG_TYPE_TEXT;
         strcpy(game_start_msg.username, "Server");
         char *pos = game_start_msg.data;
+
+        // make a random first player
+        new_game->state.turn = rand() % 2;
+
         pos += sprintf(pos, "Game %d started between %s%s%s and %s%s%s. It's %s's turn.\n",
                        game_id, STYLE_BOLD, new_game->player_usernames[PLAYER1], COLOR_RESET, STYLE_BOLD,
                        new_game->player_usernames[PLAYER2], COLOR_RESET, new_game->player_usernames[new_game->state.turn]);
@@ -1030,7 +1035,7 @@ void *handle_client(void *arg)
         close(sockfd);
         pthread_exit(NULL);
     }
-// Validate username length
+    // Validate username length
     if (strlen(msg.username) == 0 || strlen(msg.username) >= USERNAME_MAX_LEN)
     {
         // Invalid username
@@ -1122,31 +1127,12 @@ void *handle_client(void *arg)
         fprintf(fp, "\n%s", msg.data);
         fclose(fp);
     }
-    // Validate username length
-    if (strlen(msg.username) == 0 || strlen(msg.username) >= USERNAME_MAX_LEN)
-    {
-        // Invalid username
-        Message response;
-        response.type = MSG_TYPE_EXIT;
-        sprintf(response.data, "Invalid username. Must be between 1 and %d characters.", USERNAME_MAX_LEN - 1);
-        send_message(sockfd, &response);
-        close(sockfd);
-        pthread_exit(NULL);
-    }
-    // Only allow alphanumeric usernames
-    for (int i = 0; i < strlen(msg.username); i++)
-    {
-        if (!isalnum(msg.username[i]))
-        {
-            // Invalid username
-            Message response;
-            response.type = MSG_TYPE_EXIT;
-            sprintf(response.data, "Invalid username. Must be alphanumeric.");
-            send_message(sockfd, &response);
-            close(sockfd);
-            pthread_exit(NULL);
-        }
-    }
+
+    // send message to the client
+    Message welcome_msg;
+    welcome_msg.type = MSG_TYPE_SERVER;
+    colorize("Connection successful", SERVER_SUCCESS_STYLE, STYLE_BOLD, welcome_msg.data);
+    send_message(sockfd, &welcome_msg);
 
     // Add client to clients list
     pthread_mutex_lock(&clients_mutex);
@@ -1176,7 +1162,7 @@ void *handle_client(void *arg)
     }
 
     printf("%s has connected.\n", msg.username);
-    Message welcome_msg;
+
     welcome_msg.type = MSG_TYPE_SERVER;
     colorize(SERVER_WELCOME_MESSAGE, SERVER_INFO_STYLE, NULL, welcome_msg.data);
     send_message(sockfd, &welcome_msg);
