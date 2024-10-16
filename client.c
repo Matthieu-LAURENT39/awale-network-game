@@ -52,7 +52,7 @@ void *receive_handler(void *arg)
     return NULL;
 }
 
-int main()
+int main(int argc, char **argv)
 {
     int sockfd;
     struct sockaddr_in server_addr;
@@ -72,7 +72,15 @@ int main()
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
     // Replace with server IP if needed
-    server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    // if argc == 2, use argv[1] as server IP, else use localhost
+    if (argc == 2)
+    {
+        server_addr.sin_addr.s_addr = inet_addr(argv[1]);
+    }
+    else
+    {
+        server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    }
     memset(&(server_addr.sin_zero), 0, 8);
 
     if (connect(sockfd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr)) == -1)
