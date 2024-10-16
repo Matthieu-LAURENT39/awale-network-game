@@ -12,7 +12,7 @@
 #include <sys/types.h>
 
 #define PORT 12345
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 2048
 #define USERNAME_MAX_LEN 32
 
 // Message types
