@@ -406,7 +406,8 @@ void handle_command(int sockfd, const char *command, const char *username)
                                "/info <username> - Get information about a user (his name and biography)\n"
                                "/match - Join the matchmaking queue\n"
                                "/visibility <game_id> <visibility> - Set the visibility of a game (0 for private, 1 for public)\n"
-                               "/friend <username> - Add a user to your friends list\n"
+                               "/addfriend <username> - Add a user to your friends list\n"
+                               "/removefriend <username> - Remove a user from your friends list\n"
                                "/getfriends - List your friends\n"
                                "/bio <biography> - Set your biography\n%s",
                 SERVER_INFO_STYLE, STYLE_BOLD, COLOR_RESET, SERVER_INFO_STYLE, COLOR_RESET);
@@ -849,10 +850,10 @@ void handle_command(int sockfd, const char *command, const char *username)
         send_message(sockfd, &history_msg);
     }
     // add friend command
-    else if (strncmp(command, "/friend", 7) == 0)
+    else if (strncmp(command, "/addfriend", 10) == 0)
     {
         char friend_username[USERNAME_MAX_LEN];
-        sscanf(command + 8, "%s", friend_username);
+        sscanf(command + 11, "%s", friend_username);
 
         if (strcmp(friend_username, username) == 0)
         {
@@ -906,6 +907,54 @@ void handle_command(int sockfd, const char *command, const char *username)
             else
             {
                 colorize("Friend list is full.", SERVER_ERROR_STYLE, NULL, response.data);
+                send_message(sockfd, &response);
+            }
+        }
+        else
+        {
+            colorize("Failed to load user.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+        }
+    }
+    else if (strncmp(command, "/removefriend", 12) == 0)
+    {
+        char friend_username[USERNAME_MAX_LEN];
+        sscanf(command + 13, "%s", friend_username);
+
+        if (strcmp(friend_username, username) == 0)
+        {
+            colorize("You cannot remove yourself as a friend.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+            return;
+        }
+
+        // Check if friend user exists
+        pthread_mutex_lock(&clients_mutex);
+        int user_found = user_exists(friend_username);
+        pthread_mutex_unlock(&clients_mutex);
+
+        if (!user_found)
+        {
+            colorize("User not found.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+            return;
+        }
+
+        // Load the user
+        User user;
+        if (load_user(username, &user) == 1)
+        {
+            // Add the friend
+            int removed = remove_friend(username, friend_username);
+
+            if (removed)
+            {
+                colorize("Friend removed successfully.", SERVER_SUCCESS_STYLE, NULL, response.data);
+                send_message(sockfd, &response);
+            }
+            else
+            {
+                colorize("Friend not found in your list.", SERVER_ERROR_STYLE, NULL, response.data);
                 send_message(sockfd, &response);
             }
         }

@@ -15,4 +15,5 @@ int load_user(const char *username, User *user);
 int save_user(const User *user);
 int user_exists(const char *username);
 int add_friend(const char *username, const char *friend_username);
+int remove_friend(const char *username, const char *friend_username);
 int is_friend(const char *username, const char *friend_username);

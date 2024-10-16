@@ -119,6 +119,42 @@ int add_friend(const char *username, const char *friend_username)
     return 1; // Success
 }
 
+int remove_friend(const char *username, const char *friend_username)
+{
+    User user;
+    if (load_user(username, &user) != 1)
+    {
+        return -1; // Error
+    }
+
+    int found = 0;
+    for (int i = 0; i < MAX_FRIENDS; i++)
+    {
+        if (found)
+        {
+            // Shift friends to the left
+            strcpy(user.friends[i - 1], user.friends[i]);
+        }
+        else if (strcmp(user.friends[i], friend_username) == 0)
+        {
+            user.friends[i][0] = '\0';
+            found = 1;
+        }
+    }
+
+    if (!found)
+    {
+        return 0; // Friend not found
+    }
+
+    if (save_user(&user) != 1)
+    {
+        return -1; // Error
+    }
+
+    return 1; // Success
+}
+
 int is_friend(const char *username, const char *friend_username)
 {
     User user;
