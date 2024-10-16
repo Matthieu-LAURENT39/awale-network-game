@@ -2,6 +2,7 @@
 #include "game.h"
 #include "color.h"
 #include "server.h"
+#include "user.h"
 #include <pthread.h>
 #include <dirent.h>
 #include <sys/stat.h>
@@ -12,7 +13,6 @@
 // Todo: factor out common logic
 
 #define GAME_DIR "./games/"
-#define USER_DIR "./users/"
 
 // Forward definition
 void save_game_state(Game *game);
@@ -404,7 +404,8 @@ void handle_command(int sockfd, const char *command, const char *username)
                                "/watch <game_id> - Watch a game\n"
                                "/unwatch <game_id> - Stop watching a game\n"
                                "/info <username> - Get information about a user (his name and biography)\n"
-                               "/match - Join the matchmaking queue\n%s",
+                               "/match - Join the matchmaking queue\n"
+                               "/bio <biography> - Set your biography\n%s",
                 SERVER_INFO_STYLE, STYLE_BOLD, COLOR_RESET, SERVER_INFO_STYLE, COLOR_RESET);
         send_message(sockfd, &response);
     }
@@ -932,47 +933,49 @@ void handle_command(int sockfd, const char *command, const char *username)
             send_message(sockfd, &response);
         }
     }
+    // Allow user to set a biography
+    else if (strncmp(command, "/bio ", 5) == 0)
+    {
+        const char *new_bio = command + 5;
+
+        // Load the user
+        User user;
+        if (load_user(username, &user) == 1)
+        {
+            // Update the biography
+            strncpy(user.biography, new_bio, sizeof(user.biography) - 1);
+            user.biography[sizeof(user.biography) - 1] = '\0';
+
+            if (save_user(&user) == 1)
+            {
+                colorize("Biography updated successfully.", SERVER_SUCCESS_STYLE, NULL, response.data);
+                send_message(sockfd, &response);
+            }
+            else
+            {
+                colorize("Failed to save biography.", SERVER_ERROR_STYLE, NULL, response.data);
+                send_message(sockfd, &response);
+            }
+        }
+        else
+        {
+            colorize("Failed to load user data.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+        }
+    }
     // get info of a specific user, get the informations from the file of the user, don't show the password
     else if (strncmp(command, "/info ", 6) == 0)
     {
         char target_username[USERNAME_MAX_LEN];
         sscanf(command + 6, "%s", target_username);
 
-        char filepath[1024];
-        snprintf(filepath, sizeof(filepath), "%s%s.dat", USER_DIR, target_username);
-        FILE *fp = fopen(filepath, "r");
-        // Prefix to add
-        if (fp)
+        User target_user;
+        if (load_user(target_username, &target_user) == 1)
         {
-            char biography[1024];
-            char buffer[1024];
-
-            if (fgets(buffer, sizeof(buffer), fp) == NULL)
-            {
-                printf("File does not have a first line\n");
-                fclose(fp);
-            }
-
-            // Read the second line and store it in 'biography'
-            if (fgets(biography, sizeof(biography), fp) == NULL)
-            {
-                printf("File does not have a second line\n");
-                fclose(fp);
-            }
-
-            fclose(fp);
-
-            // Remove any trailing newline from the second line, if necessary
-            biography[strcspn(biography, "\n")] = '\0';
-            // Print the concatenated result
-
-            Message response;
-            response.type = MSG_TYPE_SERVER;
-            // concatenate "biography: " with the biography of the user
-
-            colorize(biography, SERVER_INFO_STYLE, NULL, response.data);
-
-            colorize("Biography: ", SERVER_INFO_STYLE, NULL, biography);
+            // Prepare response message
+            snprintf(response.data, BUFFER_SIZE, "%sUsername: %s%s\n%sBiography: %s%s",
+                     SERVER_INFO_STYLE, target_user.username, COLOR_RESET,
+                     SERVER_INFO_STYLE, target_user.biography, COLOR_RESET);
             send_message(sockfd, &response);
         }
         else
@@ -1062,23 +1065,13 @@ void *handle_client(void *arg)
             pthread_exit(NULL);
         }
     }
-    // check if a file is like username.dat
-    char filepath[1024];
-    snprintf(filepath, sizeof(filepath), "%s%s.dat", USER_DIR, msg.username);
 
-    if (access(USER_DIR, F_OK) != 0)
+    User user;
+    int user_exists = load_user(msg.username, &user);
+
+    if (user_exists == 1)
     {
-        mkdir(USER_DIR, 0755);
-    }
-
-    FILE *fp = fopen(filepath, "r");
-    // if the file exists, connect with password stored in first line of file
-    if (fp)
-    {
-        char password[1024];
-        fscanf(fp, "%s", password);
-        fclose(fp);
-
+        // User exists, check password
         Message response;
         response.type = MSG_TYPE_SERVER;
         colorize("Password: ", SERVER_INFO_STYLE, NULL, response.data);
@@ -1091,7 +1084,7 @@ void *handle_client(void *arg)
         }
 
         // if user enters wrong password repeat until correct
-        while (strcmp(msg.data, password) != 0)
+        while (strcmp(msg.data, user.password) != 0)
         {
             Message response;
             response.type = MSG_TYPE_SERVER;
@@ -1105,9 +1098,9 @@ void *handle_client(void *arg)
             }
         }
     }
-    else
+    else if (user_exists == 0)
     {
-        // create a file with username.dat and store the password in the first line
+        // User does not exist, create new user
         Message response;
         response.type = MSG_TYPE_SERVER;
         colorize("Create Password: ", SERVER_INFO_STYLE, NULL, response.data);
@@ -1119,8 +1112,9 @@ void *handle_client(void *arg)
             pthread_exit(NULL);
         }
 
-        fp = fopen(filepath, "w");
-        fprintf(fp, "%s", msg.data);
+        // Copy the password to user struct
+        strcpy(user.username, msg.username);
+        strcpy(user.password, msg.data);
 
         // ask for a biography to the user
         response.type = MSG_TYPE_SERVER;
@@ -1132,11 +1126,23 @@ void *handle_client(void *arg)
             close(sockfd);
             pthread_exit(NULL);
         }
-        fprintf(fp, "\n%s", msg.data);
-        fclose(fp);
+        strcpy(user.biography, msg.data);
+
+        // Save the new user
+        save_user(&user);
+    }
+    else
+    {
+        // Error loading user
+        Message response;
+        response.type = MSG_TYPE_EXIT;
+        sprintf(response.data, "Error loading user data.");
+        send_message(sockfd, &response);
+        close(sockfd);
+        pthread_exit(NULL);
     }
 
-    // send message to the client
+    // Send welcome message
     Message welcome_msg;
     welcome_msg.type = MSG_TYPE_SERVER;
     colorize("Connection successful", SERVER_SUCCESS_STYLE, STYLE_BOLD, welcome_msg.data);
