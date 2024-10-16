@@ -405,6 +405,7 @@ void handle_command(int sockfd, const char *command, const char *username)
                                "/unwatch <game_id> - Stop watching a game\n"
                                "/info <username> - Get information about a user (his name and biography)\n"
                                "/match - Join the matchmaking queue\n"
+                               "/visibility <game_id> <visibility> - Set the visibility of a game (0 for private, 1 for public)\n"
                                "/bio <biography> - Set your biography\n%s",
                 SERVER_INFO_STYLE, STYLE_BOLD, COLOR_RESET, SERVER_INFO_STYLE, COLOR_RESET);
         send_message(sockfd, &response);
@@ -777,6 +778,34 @@ void handle_command(int sockfd, const char *command, const char *username)
         strcpy(game_msg.username, "Server");
         strcpy(game_msg.data, game_to_string(game));
         send_message(sockfd, &game_msg);
+    }
+    else if (strncmp(command, "/visibility", 11) == 0)
+    {
+        int game_id;
+        int visibility;
+        sscanf(command + 11, "%d %d", &game_id, &visibility);
+
+        pthread_mutex_lock(&game_mutex);
+        Game *game = find_game_by_id(game_list, game_id);
+        pthread_mutex_unlock(&game_mutex);
+
+        if (!game)
+        {
+            colorize("Game not found.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+            return;
+        }
+
+        if (strcmp(username, game->player_usernames[PLAYER1]) != 0)
+        {
+            colorize("You are not the host of this game.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+            return;
+        }
+
+        game->visibility = visibility;
+        colorize("Visibility updated.", SERVER_SUCCESS_STYLE, NULL, response.data);
+        send_message(sockfd, &response);
     }
     // Get the history of moves in a game
     else if (strncmp(command, "/history ", 9) == 0)

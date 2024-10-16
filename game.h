@@ -50,6 +50,7 @@ typedef struct Game
     GameState state;
     MoveNode *move_history;
     GameStatus status;
+    int visibility; // 0 for private, 1 for public
     char watch_list[MAX_WATCHERS][USERNAME_MAX_LEN];
     struct Game *next; // For managing multiple games in a linked list
 } Game;
