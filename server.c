@@ -1290,6 +1290,7 @@ void *handle_client(void *arg)
     }
     else if (user_exists == 0)
     {
+        // TODO: make this into a function in user.c
         // User does not exist, create new user
         Message response;
         response.type = MSG_TYPE_SERVER;
@@ -1317,6 +1318,12 @@ void *handle_client(void *arg)
             pthread_exit(NULL);
         }
         strcpy(user.biography, msg.data);
+
+        // Initialize friends list
+        for (int i = 0; i < MAX_FRIENDS; i++)
+        {
+            user.friends[i][0] = '\0';
+        }
 
         // Save the new user
         save_user(&user);
