@@ -8,6 +8,7 @@
 
 #define NUM_HOLES 12             // Total number of holes on the board
 #define INITIAL_SEEDS_PER_HOLE 4 // Initial seeds in each hole
+#define MAX_WATCHERS 100         // Maximum number of watchers for a game
 
 // Player identifiers
 typedef enum
@@ -49,7 +50,7 @@ typedef struct Game
     GameState state;
     MoveNode *move_history;
     GameStatus status;
-    char watch_list[100][USERNAME_MAX_LEN];
+    char watch_list[MAX_WATCHERS][USERNAME_MAX_LEN];
     struct Game *next; // For managing multiple games in a linked list
 } Game;
 

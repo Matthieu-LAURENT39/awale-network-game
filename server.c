@@ -700,7 +700,7 @@ void handle_command(int sockfd, const char *command, const char *username)
             send_to_user(game->player_usernames[PLAYER1], &game_msg);
             send_to_user(game->player_usernames[PLAYER2], &game_msg);
 
-            for (int i = 0; i < 100; i++)
+            for (int i = 0; i < MAX_WATCHERS; i++)
             {
                 if (game->watch_list[i][0] != '\0')
                 {
