@@ -390,27 +390,33 @@ void handle_command(int sockfd, const char *command, const char *username)
     else if (strcmp(command, "/help") == 0)
     {
         sprintf(response.data, "%s%sAvailable commands:%s\n"
-                               "%s/list - Shows the list of connected clients\n"
-                               "/help - Shows this help message\n"
-                               "/challenge <username> - Challenge another player to a game\n"
-                               "/accept <game_id> - Accept a game challenge\n"
-                               "/decline <game_id> - Decline a game challenge\n"
-                               "/move <game_id> <hole_number> - Make a move in a specified game\n"
-                               "/listgames - List all active games you are part of\n"
-                               "/history - Show the move history of the current game\n"
-                               "/gameinfo <game_id> - Get detailed information about a specific game\n"
-                               "/forfeit <game_id> - Forfeit a game\n"
-                               "/exit - Disconnect from the server\n"
-                               "/watch <game_id> - Watch a game\n"
-                               "/unwatch <game_id> - Stop watching a game\n"
-                               "/info <username> - Get information about a user (his name and biography)\n"
-                               "/match - Join the matchmaking queue\n"
-                               "/visibility <game_id> <visibility> - Set the visibility of a game (0 for private, 1 for public)\n"
-                               "/addfriend <username> - Add a user to your friends list\n"
-                               "/removefriend <username> - Remove a user from your friends list\n"
-                               "/getfriends - List your friends\n"
-                               "/bio <biography> - Set your biography\n%s",
-                SERVER_INFO_STYLE, STYLE_BOLD, COLOR_RESET, SERVER_INFO_STYLE, COLOR_RESET);
+                               "%sGeneral:%s\n"
+                               "  /help - Displays this help message\n"
+                               "  /exit - Disconnects from the server\n"
+                               "  /info <username> - Retrieves information about a user (name and biography)\n"
+                               "  /bio <biography> - Sets your biography\n\n"
+
+                               "%sPlayer Interaction:%s\n"
+                               "  /addfriend <username> - Adds a user to your friends list\n"
+                               "  /removefriend <username> - Removes a user from your friends list\n"
+                               "  /getfriends - Lists your friends\n"
+                               "  /list - Shows the list of connected clients\n\n"
+
+                               "%sGames:%s\n"
+                               "  /listgames - Lists all active games you are part of\n"
+                               "  /challenge <username> - Challenges another player to a game\n"
+                               "  /accept <game_id> - Accepts a game challenge\n"
+                               "  /decline <game_id> - Declines a game challenge\n"
+                               "  /move <game_id> <hole_number> - Makes a move in a specified game\n"
+                               "  /history - Shows the move history of the current game\n"
+                               "  /gameinfo <game_id> - Gets detailed information about a specific game\n"
+                               "  /forfeit <game_id> - Forfeits a game\n"
+                               "  /watch <game_id> - Watches a game\n"
+                               "  /unwatch <game_id> - Stops watching a game\n"
+                               "  /match - Joins the matchmaking queue\n"
+                               "  /visibility <game_id> <visibility> - Sets the visibility of a game (0 for private, 1 for public)\n",
+                SERVER_INFO_STYLE, STYLE_BOLD, COLOR_RESET, SERVER_INFO_STYLE, COLOR_RESET, SERVER_INFO_STYLE, COLOR_RESET, SERVER_INFO_STYLE, COLOR_RESET);
+
         send_message(sockfd, &response);
     }
 
