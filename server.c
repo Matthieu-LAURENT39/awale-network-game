@@ -406,6 +406,8 @@ void handle_command(int sockfd, const char *command, const char *username)
                                "/info <username> - Get information about a user (his name and biography)\n"
                                "/match - Join the matchmaking queue\n"
                                "/visibility <game_id> <visibility> - Set the visibility of a game (0 for private, 1 for public)\n"
+                               "/friend <username> - Add a user to your friends list\n"
+                               "/getfriends - List your friends\n"
                                "/bio <biography> - Set your biography\n%s",
                 SERVER_INFO_STYLE, STYLE_BOLD, COLOR_RESET, SERVER_INFO_STYLE, COLOR_RESET);
         send_message(sockfd, &response);
@@ -803,6 +805,14 @@ void handle_command(int sockfd, const char *command, const char *username)
             return;
         }
 
+        // check if visibility is equal to 0 or 1, other is incorrect
+        if (visibility != 0 && visibility != 1)
+        {
+            colorize("Visibility must be 0 or 1.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+            return;
+        }
+
         game->visibility = visibility;
         colorize("Visibility updated.", SERVER_SUCCESS_STYLE, NULL, response.data);
         send_message(sockfd, &response);
@@ -838,6 +848,96 @@ void handle_command(int sockfd, const char *command, const char *username)
         }
         send_message(sockfd, &history_msg);
     }
+    // add friend command
+    else if (strncmp(command, "/friend", 7) == 0)
+    {
+        char friend_username[USERNAME_MAX_LEN];
+        sscanf(command + 8, "%s", friend_username);
+
+        if (strcmp(friend_username, username) == 0)
+        {
+            colorize("You cannot add yourself as a friend.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+            return;
+        }
+
+        // Check if friend user exists
+        pthread_mutex_lock(&clients_mutex);
+        int user_found = user_exists(friend_username);
+        pthread_mutex_unlock(&clients_mutex);
+
+        if (!user_found)
+        {
+            colorize("User not found.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+            return;
+        }
+
+        // Load the user
+        User user;
+        if (load_user(username, &user) == 1)
+        {
+            // Add the friend
+            int added = 0;
+            for (int i = 0; i < MAX_FRIENDS; i++)
+            {
+                if (user.friends[i][0] == '\0')
+                {
+                    strncpy(user.friends[i], friend_username, USERNAME_MAX_LEN - 1);
+                    user.friends[i][USERNAME_MAX_LEN - 1] = '\0';
+                    added = 1;
+                    break;
+                }
+            }
+
+            if (added)
+            {
+                if (save_user(&user) == 1)
+                {
+                    colorize("Friend added successfully.", SERVER_SUCCESS_STYLE, NULL, response.data);
+                    send_message(sockfd, &response);
+                }
+                else
+                {
+                    colorize("Failed to save user.", SERVER_ERROR_STYLE, NULL, response.data);
+                    send_message(sockfd, &response);
+                }
+            }
+            else
+            {
+                colorize("Friend list is full.", SERVER_ERROR_STYLE, NULL, response.data);
+                send_message(sockfd, &response);
+            }
+        }
+        else
+        {
+            colorize("Failed to load user.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+        }
+    }
+    else if (strcmp(command, "/getfriends") == 0)
+    {
+        User user;
+        if (load_user(username, &user) == 1)
+        {
+            char friends_list[BUFFER_SIZE] = "Friends:\n";
+            for (int i = 0; i < MAX_FRIENDS; i++)
+            {
+                if (user.friends[i][0] != '\0')
+                {
+                    strcat(friends_list, user.friends[i]);
+                    strcat(friends_list, "\n");
+                }
+            }
+            colorize(friends_list, SERVER_SUCCESS_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+        }
+        else
+        {
+            colorize("Failed to load user.", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+        }
+    }
     // watch a specific game
     else if (strncmp(command, "/watch ", 7) == 0)
     {
@@ -857,6 +957,18 @@ void handle_command(int sockfd, const char *command, const char *username)
 
         // Add the user to the watch list
         pthread_mutex_lock(&game_mutex);
+        // if the game is private, the user can't watch it if they are not a friend of the players
+        // We check both players' friends list, since friendship is unilateral, use function is_friend to check if the user is a friend of the player
+        if (game->visibility == 0)
+        {
+            if (!is_friend(game->player_usernames[PLAYER1], username) && !is_friend(game->player_usernames[PLAYER2], username))
+            {
+                colorize("You can't watch this game because it's private and you are not a friend of the players.", SERVER_ERROR_STYLE, NULL, response.data);
+                send_message(sockfd, &response);
+                pthread_mutex_unlock(&game_mutex);
+                return;
+            }
+        }
         // check if the user is already watching the game
         int already_watching = 0;
         for (int i = 0; i < 100; i++)
