@@ -24,11 +24,11 @@ typedef enum
     MSG_TYPE_EXIT,
     // Server message, doesn't display the username
     MSG_TYPE_SERVER,
-    // message for info of party, doesn't display anything
+    // message for info of game, displays the board
     MSG_TYPE_INFO,
     // message for private message
     MSG_TYPE_MP,
-    // message for game
+    // message for game chat
     MSG_TYPE_GAME
 } MessageType;
 

@@ -16,14 +16,14 @@ void *receive_handler(void *arg)
         if (res == -1 || msg.type == MSG_TYPE_EXIT)
         {
             printf("%sDisconnected from server.%s\n", SERVER_ERROR_STYLE, COLOR_RESET);
-            if (msg.data[0] != '\0')
+            if (msg.data[0] != '\0' && msg.type == MSG_TYPE_EXIT)
             {
                 printf("%sReason: %s%s\n", SERVER_ERROR_STYLE, msg.data, COLOR_RESET);
             }
             close(sockfd);
             exit(1);
         }
-        else if (msg.type == MSG_TYPE_TEXT)
+        else if (msg.type == MSG_TYPE_TEXT) // Regular chat message
         {
             printf("%s%s%s:%s %s%s%s\n", CHAT_USERNAME_STYLE, STYLE_BOLD, msg.username, COLOR_RESET, CHAT_TEXT_STYLE, msg.data, COLOR_RESET);
         }
