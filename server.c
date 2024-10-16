@@ -608,6 +608,7 @@ void handle_command(int sockfd, const char *command, const char *username)
         {
             colorize("Game not found.", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
+            pthread_mutex_unlock(&game_mutex);
             return;
         }
 
@@ -616,6 +617,7 @@ void handle_command(int sockfd, const char *command, const char *username)
         {
             colorize("Game is already over.", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
+            pthread_mutex_unlock(&game_mutex);
             return;
         }
         pthread_mutex_unlock(&game_mutex);
