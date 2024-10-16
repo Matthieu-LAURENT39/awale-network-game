@@ -52,3 +52,16 @@ int save_user(const User *user)
     fclose(fp);
     return 1;
 }
+
+int user_exists(const char *username)
+{
+    char filepath[1024];
+    snprintf(filepath, sizeof(filepath), "%s%s.dat", USER_DIR, username);
+
+    FILE *fp = fopen(filepath, "r");
+    if (!fp)
+        return 0; // User does not exist
+
+    fclose(fp);
+    return 1; // User exists
+}
