@@ -1063,6 +1063,12 @@ void *handle_client(void *arg)
     // check if a file is like username.dat
     char filepath[1024];
     snprintf(filepath, sizeof(filepath), "%s%s.dat", USER_DIR, msg.username);
+
+    if (access(USER_DIR, F_OK) != 0)
+    {
+        mkdir(USER_DIR, 0755);
+    }
+
     FILE *fp = fopen(filepath, "r");
     // if the file exists, connect with password stored in first line of file
     if (fp)

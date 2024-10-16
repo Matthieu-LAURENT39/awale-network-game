@@ -3,4 +3,5 @@ __pycache__
 server
 client
 games/
+users/
 .DS_Store
