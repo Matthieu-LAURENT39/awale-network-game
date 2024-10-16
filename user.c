@@ -3,6 +3,14 @@
 
 int load_user(const char *username, User *user)
 {
+    memset(user->username, 0, sizeof(user->username));
+    memset(user->password, 0, sizeof(user->password));
+    memset(user->biography, 0, sizeof(user->biography));
+    for (int i = 0; i < MAX_FRIENDS; i++)
+    {
+        user->friends[i][0] = '\0';
+    }
+
     char filepath[1024];
     snprintf(filepath, sizeof(filepath), "%s%s.dat", USER_DIR, username);
 
@@ -84,6 +92,10 @@ int user_exists(const char *username)
     return 1; // User exists
 }
 
+// Returns:
+// 1 - Success
+// 0 - Friend already exists
+// -1 - Error
 int add_friend(const char *username, const char *friend_username)
 {
     User user;

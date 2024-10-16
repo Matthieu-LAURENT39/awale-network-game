@@ -857,7 +857,7 @@ void handle_command(int sockfd, const char *command, const char *username)
 
         if (strcmp(friend_username, username) == 0)
         {
-            colorize("You cannot add yourself as a friend.", SERVER_ERROR_STYLE, NULL, response.data);
+            colorize("You cannot add yourself as a friend.\n", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
             return;
         }
@@ -869,50 +869,25 @@ void handle_command(int sockfd, const char *command, const char *username)
 
         if (!user_found)
         {
-            colorize("User not found.", SERVER_ERROR_STYLE, NULL, response.data);
+            colorize("User not found.\n", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
             return;
         }
 
-        // Load the user
-        User user;
-        if (load_user(username, &user) == 1)
+        int added = add_friend(username, friend_username);
+        if (added == 1)
         {
-            // Add the friend
-            int added = 0;
-            for (int i = 0; i < MAX_FRIENDS; i++)
-            {
-                if (user.friends[i][0] == '\0')
-                {
-                    strncpy(user.friends[i], friend_username, USERNAME_MAX_LEN - 1);
-                    user.friends[i][USERNAME_MAX_LEN - 1] = '\0';
-                    added = 1;
-                    break;
-                }
-            }
-
-            if (added)
-            {
-                if (save_user(&user) == 1)
-                {
-                    colorize("Friend added successfully.", SERVER_SUCCESS_STYLE, NULL, response.data);
-                    send_message(sockfd, &response);
-                }
-                else
-                {
-                    colorize("Failed to save user.", SERVER_ERROR_STYLE, NULL, response.data);
-                    send_message(sockfd, &response);
-                }
-            }
-            else
-            {
-                colorize("Friend list is full.", SERVER_ERROR_STYLE, NULL, response.data);
-                send_message(sockfd, &response);
-            }
+            colorize("Friend added successfully.\n", SERVER_SUCCESS_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
+        }
+        else if (added == 0)
+        {
+            colorize("Friend already exists in your list.\n", SERVER_ERROR_STYLE, NULL, response.data);
+            send_message(sockfd, &response);
         }
         else
         {
-            colorize("Failed to load user.", SERVER_ERROR_STYLE, NULL, response.data);
+            colorize("Failed to add friend.\n", SERVER_ERROR_STYLE, NULL, response.data);
             send_message(sockfd, &response);
         }
     }
@@ -1292,6 +1267,14 @@ void *handle_client(void *arg)
     {
         // TODO: make this into a function in user.c
         // User does not exist, create new user
+        memset(user.username, 0, sizeof(user.username));
+        memset(user.password, 0, sizeof(user.password));
+        memset(user.biography, 0, sizeof(user.biography));
+        for (int i = 0; i < MAX_FRIENDS; i++)
+        {
+            user.friends[i][0] = '\0';
+        }
+
         Message response;
         response.type = MSG_TYPE_SERVER;
         colorize("Create Password: ", SERVER_INFO_STYLE, NULL, response.data);
@@ -1318,12 +1301,6 @@ void *handle_client(void *arg)
             pthread_exit(NULL);
         }
         strcpy(user.biography, msg.data);
-
-        // Initialize friends list
-        for (int i = 0; i < MAX_FRIENDS; i++)
-        {
-            user.friends[i][0] = '\0';
-        }
 
         // Save the new user
         save_user(&user);
