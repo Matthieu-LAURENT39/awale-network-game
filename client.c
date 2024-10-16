@@ -135,6 +135,11 @@ int main(int argc, char **argv)
         {
             msg.type = MSG_TYPE_TEXT;
             strcpy(msg.data, input);
+            // Don't send empty messages, since it's likely a mistake
+            if (strlen(msg.data) == 0)
+            {
+                continue;
+            }
             if (send_message(sockfd, &msg) == -1)
             {
                 perror("send_message");
