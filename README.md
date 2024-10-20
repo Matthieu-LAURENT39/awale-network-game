@@ -12,26 +12,25 @@ Ce projet est testé sur Linux et macOS.
         * [`/help`](#help)
         * [`/exit`](#exit)
         * [`/info <username>`](#info-username)
-        * [`/info <username>`](#info-username-1)
         * [`/bio <biography>`](#bio-biography)
     + [Interaction avec les autres joueurs](#interaction-avec-les-autres-joueurs)
         * [`/addfriend <username>`](#addfriend-username)
         * [`/removefriend <username>`](#removefriend-username)
         * [`/getfriends`](#getfriends)
         * [`/list`](#list)
-    + [Commandes liées aux jeux](#commandes-liées-aux-jeux)
-        * [`/listgames`](#listgames)
-        * [`/challenge <username>`](#challenge-username)
-        * [`/accept <game_id>`](#accept-game_id)
-        * [`/decline <game_id>`](#decline-game_id)
-        * [`/move <game_id> <hole_number>`](#move-game_id-hole_number)
-        * [`/history`](#history)
-        * [`/gameinfo <game_id>`](#gameinfo-game_id)
-        * [`/forfeit <game_id>`](#forfeit-game_id)
-        * [`/watch <game_id>`](#watch-game_id)
-        * [`/unwatch <game_id>`](#unwatch-game_id)
-        * [`/match`](#match)
-        * [`/visibility <game_id> <visibility>`](#visibility-game_id-visibility)
+- [Commandes liées au jeu](#commandes-liées-au-jeu)
+    * [`/listgames`](#listgames)
+    * [`/challenge <username>`](#challenge-username)
+    * [`/accept <game_id>`](#accept-game_id)
+    * [`/decline <game_id>`](#decline-game_id)
+    * [`/move <game_id> <hole_number>`](#move-game_id-hole_number)
+    * [`/history <game_id>`](#history-game_id)
+    * [`/gameinfo <game_id>`](#gameinfo-game_id)
+    * [`/forfeit <game_id>`](#forfeit-game_id)
+    * [`/watch <game_id>`](#watch-game_id)
+    * [`/unwatch <game_id>`](#unwatch-game_id)
+    * [`/match`](#match)
+    * [`/visibility <game_id> <visibility>`](#visibility-game_id-visibility)
 - [Conclusion](#conclusion)
 
 ## 1. Compilation
@@ -123,7 +122,7 @@ Ce guide vous explique comment utiliser les commandes disponibles sur le serveur
 ##### `/list`
 - **Description**: Affiche la liste des utilisateurs actuellement connectés.
 
-## Commandes liées aux jeu
+## Commandes liées au jeu
 ##### `/listgames`
 - **Description**: Affiche la liste de tous les parties actives auxquels vous participez.
 
