@@ -13,9 +13,9 @@ Ce guide vous explique comment utiliser les commandes disponibles sur le serveur
 
 ##### `/help`
 - **Description**: Affiche le message d'aide avec une liste complète des commandes disponibles.
-- **Exemple**: 
+- **Exemple**:
 
-Cela affichera le message d’aide que vous êtes en train de lire.
+<img width="698" alt="Capture d’écran 2024-10-20 à 13 16 50" src="https://github.com/user-attachments/assets/fa082c34-a486-473a-8c6b-a79bb88ae37c">
 
 ##### `/exit`
 - **Description**: Déconnecte l’utilisateur du serveur.
