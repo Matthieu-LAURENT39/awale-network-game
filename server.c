@@ -1,7 +1,6 @@
 #include "common.h"
 #include "game.h"
 #include "color.h"
-#include "server.h"
 #include "user.h"
 #include <pthread.h>
 #include <dirent.h>
@@ -781,6 +780,19 @@ void handle_command(int sockfd, const char *command, const char *username)
             return;
         }
 
+        // if the game is private, the user can't see it if they are not a friend of the players
+        // We check both players' friends list, since friendship is unilateral
+        if (game->visibility == 0 && strcmp(username, game->player_usernames[PLAYER1]) != 0 && strcmp(username, game->player_usernames[PLAYER2]) != 0)
+        {
+            if ((!is_friend(game->player_usernames[PLAYER1], username) && !is_friend(game->player_usernames[PLAYER2], username)))
+            {
+                colorize("You can't watch this game because it's private and you are not a friend of the players.", SERVER_ERROR_STYLE, NULL, response.data);
+                send_message(sockfd, &response);
+                pthread_mutex_unlock(&game_mutex);
+                return;
+            }
+        }
+
         // Prepare game state information
         Message game_msg;
         game_msg.type = MSG_TYPE_INFO;
@@ -988,7 +1000,7 @@ void handle_command(int sockfd, const char *command, const char *username)
         // Add the user to the watch list
         pthread_mutex_lock(&game_mutex);
         // if the game is private, the user can't watch it if they are not a friend of the players
-        // We check both players' friends list, since friendship is unilateral, use function is_friend to check if the user is a friend of the player
+        // We check both players' friends list, since friendship is unilateral
         if (game->visibility == 0)
         {
             if (!is_friend(game->player_usernames[PLAYER1], username) && !is_friend(game->player_usernames[PLAYER2], username))
