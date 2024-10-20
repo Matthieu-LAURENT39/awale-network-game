@@ -31,6 +31,7 @@ Game *create_game(int game_id, const char *player1_username, const char *player2
     game->move_history = NULL;
     game->next = NULL;
     game->status = ONGOING;
+    game->visibility = 1; // Public game by default
 
     // Initialize watch list with NULL
     for (int i = 0; i < 100; i++)
