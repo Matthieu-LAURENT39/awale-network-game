@@ -75,11 +75,10 @@ make run-client
 ```
 
 ## 3. Utilisation et fonctionnalités
-### Guide d'utilisateur pour le système de commandes
 
 Ce guide vous explique comment utiliser les commandes disponibles sur le serveur pour interagir avec d'autres utilisateurs et participer à des jeux. Ce système vous permet de gérer vos amis, de jouer à des jeux et de contrôler les informations associées à votre compte.
 
-#### Commandes Générales
+### Commandes Générales
 
 ##### `/help`
 - **Description**: Affiche le message d'aide avec une liste complète des commandes disponibles.
