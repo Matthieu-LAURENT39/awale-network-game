@@ -1,8 +1,78 @@
 # TP Awale
+Un jeu de Awale en C avec un architecture client-serveur, projet de programmation réseau en 4IFA à l'INSA de Lyon.  
+Ce projet est testé sur Linux et macOS.  
 
-## 1. Build
+## Table des matières
+- [1. Compilation](#1-compilation)
+- [2. Lancement](#2-lancement)
+    + [Serveur](#serveur)
+    + [Client](#client)
+- [3. Utilisation et fonctionnalités](#3-utilisation-et-fonctionnalités)
+    + [Guide d'utilisateur pour le système de commandes](#guide-dutilisateur-pour-le-système-de-commandes)
+        * [Commandes Générales](#commandes-générales)
+        * [`/help`](#help)
+        * [`/exit`](#exit)
+        * [`/info <username>`](#info-username)
+        * [`/info <username>`](#info-username-1)
+        * [`/bio <biography>`](#bio-biography)
+    + [Interaction avec les autres joueurs](#interaction-avec-les-autres-joueurs)
+        * [`/addfriend <username>`](#addfriend-username)
+        * [`/removefriend <username>`](#removefriend-username)
+        * [`/getfriends`](#getfriends)
+        * [`/list`](#list)
+    + [Commandes liées aux jeux](#commandes-liées-aux-jeux)
+        * [`/listgames`](#listgames)
+        * [`/challenge <username>`](#challenge-username)
+        * [`/accept <game_id>`](#accept-game_id)
+        * [`/decline <game_id>`](#decline-game_id)
+        * [`/move <game_id> <hole_number>`](#move-game_id-hole_number)
+        * [`/history`](#history)
+        * [`/gameinfo <game_id>`](#gameinfo-game_id)
+        * [`/forfeit <game_id>`](#forfeit-game_id)
+        * [`/watch <game_id>`](#watch-game_id)
+        * [`/unwatch <game_id>`](#unwatch-game_id)
+        * [`/match`](#match)
+        * [`/visibility <game_id> <visibility>`](#visibility-game_id-visibility)
+- [Conclusion](#conclusion)
+
+## 1. Compilation
+Ce projet utilise [make](https://www.gnu.org/software/make/) pour la compilation.
+
+```bash
+# Compilation du serveur et du client
+make all
+
+# Compilation du serveur
+make server
+
+# Compilation du client
+make client
+
+# Nettoyage des fichiers générés
+make clean
+```
 
 ## 2. Lancement
+
+### Serveur
+```bash
+# Lancement du serveur
+./server
+
+# Pour compiler et lancer le serveur
+make run-server
+```
+
+### Client
+```bash
+# Lancement du client vers localhost
+./client
+# En spécifiant l'adresse IP du serveur
+./client <ip>
+
+# Pour compiler et lancer le client
+make run-client
+```
 
 ## 3. Utilisation et fonctionnalités
 ### Guide d'utilisateur pour le système de commandes
