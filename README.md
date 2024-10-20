@@ -94,13 +94,6 @@ Utilisez cette commande pour quitter la session en cours.
 - **Paramètre**: 
     - `<username>` : Le nom d’utilisateur dont vous voulez connaître les informations.
 - **Exemple**:
-Utilisez cette commande pour quitter la session en cours.
-
-##### `/info <username>`
-- **Description**: Récupère des informations sur un utilisateur, telles que son nom et sa biographie.
-- **Paramètre**: 
-    - `<username>` : Le nom d’utilisateur dont vous voulez connaître les informations.
-- **Exemple**:
 Cela affichera les informations de l’utilisateur nommé JohnDoe.
 
 ##### `/bio <biography>`
