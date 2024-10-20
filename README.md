@@ -86,141 +86,125 @@ Ce guide vous explique comment utiliser les commandes disponibles sur le serveur
 
 ##### `/exit`
 - **Description**: Déconnecte l’utilisateur du serveur.
-- **Exemple**:
-Utilisez cette commande pour quitter la session en cours.
 
 ##### `/info <username>`
 - **Description**: Récupère des informations sur un utilisateur, telles que son nom et sa biographie.
 - **Paramètre**: 
     - `<username>` : Le nom d’utilisateur dont vous voulez connaître les informations.
 - **Exemple**:
-Utilisez cette commande pour quitter la session en cours.
-
-##### `/info <username>`
-- **Description**: Récupère des informations sur un utilisateur, telles que son nom et sa biographie.
-- **Paramètre**: 
-    - `<username>` : Le nom d’utilisateur dont vous voulez connaître les informations.
-- **Exemple**:
-Cela affichera les informations de l’utilisateur nommé JohnDoe.
+`/info JohnDoe`: Cela affichera les informations de l’utilisateur JohnDoe.
 
 ##### `/bio <biography>`
 - **Description**: Définit ou modifie votre biographie.
 - **Paramètre**:
     - `<biography>` : Le texte que vous souhaitez définir comme biographie.
 - **Exemple**:
-Cela mettra à jour votre biographie avec le texte fourni.
+`/bio Salut!`: Cela définira votre biographie comme "Salut!".
 
 ### Interaction avec les autres joueurs
 
 ##### `/addfriend <username>`
-- **Description**: Ajoute un utilisateur à votre liste d’amis.
+- **Description**: Ajoute un utilisateur à votre liste d’amis. Cela lui permettra de voir vos parties privées.
 - **Paramètre**:
     - `<username>` : Le nom d’utilisateur de la personne à ajouter.
 - **Exemple**:
-Cette commande ajoutera JaneDoe à votre liste d’amis.
+`/addfriend JaneDoe`: Cela ajoutera JaneDoe à votre liste d’amis.
 
 ##### `/removefriend <username>`
 - **Description**: Supprime un utilisateur de votre liste d’amis.
 - **Paramètre**:
     - `<username>` : Le nom d’utilisateur de la personne à retirer.
 - **Exemple**:
-Cela retirera JaneDoe de votre liste d’amis.
+`/removefriend JaneDoe`: Cela retirera JaneDoe de votre liste d’amis.
 
 ##### `/getfriends`
 - **Description**: Affiche la liste de vos amis.
-- **Exemple**:
-Cela vous montrera tous les utilisateurs que vous avez ajoutés en tant qu’amis.
 
 ##### `/list`
 - **Description**: Affiche la liste des utilisateurs actuellement connectés.
-- **Exemple**:
-Vous pourrez voir tous les utilisateurs connectés au serveur en temps réel.
 
-## Commandes liées aux jeux
-
+## Commandes liées aux jeu
 ##### `/listgames`
-- **Description**: Affiche la liste de tous les jeux actifs auxquels vous participez.
-- **Exemple**:
-Cela affichera la liste des jeux en cours où vous êtes impliqué.
+- **Description**: Affiche la liste de tous les parties actives auxquels vous participez.
 
 ##### `/challenge <username>`
-- **Description**: Défie un autre utilisateur à un jeu.
+- **Description**: Défie un autre utilisateur à une partie.
 - **Paramètre**:
     - `<username>` : Le nom d’utilisateur de la personne que vous souhaitez défier.
 - **Exemple**:
-Cela défiera JohnDoe à un jeu.
+`/challenge JaneDoe`: Cela défiera JaneDoe à une partie.
 
 ##### `/accept <game_id>`
-- **Description**: Accepte un défi de jeu.
+- **Description**: Accepte un défi de partie.
 - **Paramètre**:
-    - `<game_id>` : L’identifiant du jeu que vous souhaitez accepter.
+    - `<game_id>` : L’identifiant de la partie que vous souhaitez accepter.
 - **Exemple**:
-Cela acceptera le défi du jeu avec l’identifiant 12345.
+`/accept 12345`: Cela acceptera le défi de la partie avec l’identifiant 12345.
 
 ##### `/decline <game_id>`
-- **Description**: Refuse un défi de jeu.
+- **Description**: Refuse un défi de partie.
 - **Paramètre**:
-    - `<game_id>` : L’identifiant du jeu que vous souhaitez refuser.
+    - `<game_id>` : L’identifiant de la partie que vous souhaitez refuser.
 - **Exemple**:
-Cela refusera le défi du jeu avec l’identifiant 12345.
+`/decline 12345`: Cela refusera le défi de la partie avec l’identifiant 12345.
 
 ##### `/move <game_id> <hole_number>`
-- **Description**: Fait un mouvement dans un jeu spécifique.
+- **Description**: Fait un mouvement dans une partie spécifique.
 - **Paramètres**:
-    - `<game_id>` : L’identifiant du jeu.
-    - `<hole_number>` : Le numéro du trou où vous souhaitez jouer (applicable à un jeu comme Puissance 4).
+    - `<game_id>` : L’identifiant de la partie.
+    - `<hole_number>` : Le numéro du trou où vous souhaitez jouer.
 - **Exemple**:
-Cela jouera dans la colonne 4 du jeu 12345.
-
+`/move 12345 3`: Cela fera un mouvement dans la partie avec l’identifiant 12345 dans le trou 3.
+            
 ##### `/history <game_id>`
-- **Description**: Affiche l'historique des mouvements d'un jeu.
+- **Description**: Affiche l'historique des mouvements d'une partie spécifique.
+- **Paramètre**:
+    - `<game_id>` : L’identifiant de la partie.
 - **Exemple**:
-Cela affichera les mouvements passés d'un jeu.
+`/history 12345`: Cela affichera l'historique des mouvements de la partie avec l’identifiant 12345.
 
 ##### `/gameinfo <game_id>`
-- **Description**: Affiche des informations détaillées sur un jeu spécifique.
+- **Description**: Affiche des informations détaillées sur une partie spécifique.
 - **Paramètre**:
-    - `<game_id>` : L’identifiant du jeu.
+    - `<game_id>` : L’identifiant de la partie.
 - **Exemple**:
-Cela vous donnera des détails sur le jeu ayant l’identifiant 12345.
+`/gameinfo 12345`: Cela affichera des informations détaillées sur la partie avec l’identifiant 12345.
+- **Important** : Si la partie est privé et que vous n'êtes **pas ami** avec le joueur, la commande échouera et vous recevrez un message d'erreur. Assurez-vous d'être ami avec le joueur ou que la partie soit publique.
 
 ##### `/forfeit <game_id>`
-- **Description**: Abandonne un jeu.
+- **Description**: Abandonne une partie.
 - **Paramètre**:
-    - `<game_id>` : L’identifiant du jeu que vous souhaitez abandonner.
+    - `<game_id>` : L’identifiant de la partie que vous souhaitez abandonner.
 - **Exemple**:
-Cela vous fera abandonner le jeu avec l’identifiant 12345.
+`/forfeit 12345`: Cela abandonnera la partie avec l’identifiant 12345.
 
 ##### `/watch <game_id>`
-- **Description**: Permet de regarder un jeu en cours.
+- **Description**: Permet de regarder une partie en cours.
 - **Paramètre**:
-    - `<game_id>` : L’identifiant du jeu que vous souhaitez regarder.
-- **Important** : Si le jeu est privé et que vous n'êtes **pas ami** avec le joueur, la commande échouera et vous recevrez un message d'erreur précisant que vous ne pouvez pas observer le jeu. Assurez-vous d'être ami avec le joueur ou que le jeu soit public.
+    - `<game_id>` : L’identifiant de la partie que vous souhaitez regarder.
+- **Important** : Si la partie est privé et que vous n'êtes **pas ami** avec le joueur, la commande échouera et vous recevrez un message d'erreur précisant que vous ne pouvez pas observer la partie. Assurez-vous d'être ami avec le joueur ou que la partie soit public.
 - **Exemple**:
-Vous pourrez regarder le jeu avec l’identifiant 12345. Cependant, si ce jeu est privé et que vous n'êtes pas ami avec le joueur principal, vous recevrez un message d'erreur indiquant que vous n'avez pas les permissions nécessaires pour observer ce jeu.
+`/watch 12345`: Cela vous permettra de regarder la partie avec l’identifiant 12345.
 
 ##### `/unwatch <game_id>`
-- **Description**: Arrête de regarder un jeu en cours.
+- **Description**: Arrête de regarder une partie en cours.
 - **Paramètre**:
-    - `<game_id>` : L’identifiant du jeu que vous ne voulez plus regarder.
+    - `<game_id>` : L’identifiant de la partie que vous ne voulez plus regarder.
 - **Exemple**:
-Cela vous retirera de la liste des spectateurs du jeu 12345.
+`/unwatch 12345`: Cela arrêtera de regarder la partie avec l’identifiant 12345.
 
 ##### `/match`
-- **Description**: Rejoint la file d'attente de matchmaking pour trouver un adversaire.
-- **Exemple**:
-Cela vous mettra en file d'attente pour trouver un match contre un autre joueur.
+- **Description**: Rejoint la file d'attente de matchmaking pour trouver un adversaire. Une fois qu'un adversaire est trouvé, une partie est créé et vous êtes invité à jouer.
 
 ##### `/visibility <game_id> <visibility>`
-- **Description**: Définit la visibilité d'un jeu en cours.
+- **Description**: Définit la visibilité d'une partie en cours.
 - **Paramètres**:
-    - `<game_id>` : L’identifiant du jeu.
-    - `<visibility>` : `0` pour un jeu privé, `1` pour un jeu public.
+    - `<game_id>` : L’identifiant de la partie.
+    - `<visibility>` : `0` pour une partie privé, `1` pour une partie public.
 - **Exemple**:
-Cela rendra le jeu avec l’identifiant 12345 visible au public.
+`/visibility 12345 0`: Cela définira la partie avec l’identifiant 12345 comme privée.
 
 ## Conclusion
-
 Ce guide couvre toutes les commandes disponibles pour naviguer et interagir avec les utilisateurs et les jeux sur le serveur. Utilisez ces commandes pour personnaliser votre expérience de jeu, gérer vos amis, et participer activement aux matchs.
 
 Si vous essayez de regarder un jeu privé sans être ami avec le joueur principal, vous recevrez un message d'erreur. Assurez-vous que le jeu soit public ou que vous soyez dans la liste d'amis du joueur.
