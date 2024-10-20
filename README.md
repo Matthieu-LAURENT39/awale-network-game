@@ -172,10 +172,10 @@ Cela refusera le défi du jeu avec l’identifiant 12345.
 - **Exemple**:
 Cela jouera dans la colonne 4 du jeu 12345.
 
-##### `/history`
-- **Description**: Affiche l'historique des mouvements du jeu en cours.
+##### `/history <game_id>`
+- **Description**: Affiche l'historique des mouvements d'un jeu.
 - **Exemple**:
-Cela affichera les mouvements passés du jeu actuel.
+Cela affichera les mouvements passés d'un jeu.
 
 ##### `/gameinfo <game_id>`
 - **Description**: Affiche des informations détaillées sur un jeu spécifique.

@@ -407,7 +407,7 @@ void handle_command(int sockfd, const char *command, const char *username)
                                "  /accept <game_id> - Accepts a game challenge\n"
                                "  /decline <game_id> - Declines a game challenge\n"
                                "  /move <game_id> <hole_number> - Makes a move in a specified game\n"
-                               "  /history - Shows the move history of the current game\n"
+                               "  /history <game_id> - Shows the move history of the current game\n"
                                "  /gameinfo <game_id> - Gets detailed information about a specific game\n"
                                "  /forfeit <game_id> - Forfeits a game\n"
                                "  /watch <game_id> - Watches a game\n"
