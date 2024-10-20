@@ -73,7 +73,6 @@ void add_move_to_history(Game *game, int player, int hole);
 void free_move_history(MoveNode *history);
 
 // Utility functions
-void print_board(Game *game);
 int check_game_over(Game *game);
 int pretty_board_state(Game *game, char *output);
 

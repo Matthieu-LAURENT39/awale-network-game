@@ -2,8 +2,6 @@
 #include "color.h"
 #include <pthread.h>
 #include "game.c"
-#include "server.h"
-#include "client.h"
 
 // Thread to handle incoming messages
 void *receive_handler(void *arg)
